@@ -7,6 +7,9 @@
 #include <QStandardPaths>
 #include <QString>
 
+// Forward-declare Qt class outside namespace sc to avoid sc::QThread ambiguity
+class QThread;
+
 namespace sc {
 
 // ---------------------------------------------------------------------------
@@ -96,6 +99,7 @@ struct RecordingSettings {
 
 class CaptureWindow;
 class ControlBar;
+class RecorderWorker;
 
 class AppController : public QObject {
     Q_OBJECT
@@ -116,22 +120,32 @@ public slots:
     void onPauseRequested();
     void onResumeRequested();
     void onRegionChanged(const QRect& rect);
+    void onRecordingFinished();
+    void onProgressUpdated(qint64 elapsedMs);
 
 signals:
     void stateChanged(sc::AppState newState);
     void regionChanged(const sc::CaptureRegion& region);
+    // Relayed from the worker; control bar uses this to update its timer label.
+    void recordingProgress(qint64 elapsedMs);
 
 private:
     void setState(AppState s);
     void loadSettings();
     void saveSettings();
+    // Attach a concrete worker: moves it to a dedicated QThread and wires signals.
+    // Takes ownership of both worker and the thread.
+    void attachWorker(RecorderWorker* worker);
+    void teardownWorker();
 
     AppState m_state = AppState::Idle;
     CaptureRegion m_region;
     RecordingSettings m_settings;
 
-    CaptureWindow* m_captureWindow = nullptr;
-    ControlBar*    m_controlBar    = nullptr;
+    CaptureWindow*  m_captureWindow  = nullptr;
+    ControlBar*     m_controlBar     = nullptr;
+    RecorderWorker* m_worker         = nullptr;
+    QThread*        m_workerThread   = nullptr;
 };
 
 } // namespace sc

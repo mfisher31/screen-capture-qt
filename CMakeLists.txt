@@ -16,12 +16,14 @@ find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Test)
 set(SOURCES
     src/main.cpp
     src/appcontroller.cpp
+    src/recorderworker.cpp
     src/ui/capturewindow.cpp
     src/ui/controlbar.cpp
 )
 
 set(HEADERS
     src/appcontroller.hpp
+    src/recorderworker.hpp
     src/ui/capturewindow.hpp
     src/ui/controlbar.hpp
 )

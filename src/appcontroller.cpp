@@ -1,9 +1,11 @@
 #include "appcontroller.hpp"
+#include "recorderworker.hpp"
 #include "ui/capturewindow.hpp"
 #include "ui/controlbar.hpp"
 
 #include <QGuiApplication>
 #include <QScreen>
+#include <QThread>
 
 namespace sc {
 
@@ -25,6 +27,7 @@ AppController::AppController(QObject* parent)
 
 AppController::~AppController()
 {
+    teardownWorker();
     saveSettings();
 }
 
@@ -72,9 +75,10 @@ void AppController::onStopRequested()
 {
     if (m_state != AppState::Recording && m_state != AppState::Paused)
         return;
-    setState(AppState::Processing);
-    // TODO: signal encoder worker; for now go straight back to Idle
-    setState(AppState::Idle);
+    if (m_worker)
+        QMetaObject::invokeMethod(m_worker, "stop", Qt::QueuedConnection);
+    else
+        setState(AppState::Idle); // no worker yet — stub path
 }
 
 void AppController::onPauseRequested()
@@ -82,6 +86,8 @@ void AppController::onPauseRequested()
     if (m_state != AppState::Recording)
         return;
     setState(AppState::Paused);
+    if (m_worker)
+        QMetaObject::invokeMethod(m_worker, "pause", Qt::QueuedConnection);
 }
 
 void AppController::onResumeRequested()
@@ -89,6 +95,8 @@ void AppController::onResumeRequested()
     if (m_state != AppState::Paused)
         return;
     setState(AppState::Recording);
+    if (m_worker)
+        QMetaObject::invokeMethod(m_worker, "resume", Qt::QueuedConnection);
 }
 
 void AppController::onRegionChanged(const QRect& rect)
@@ -100,10 +108,64 @@ void AppController::onRegionChanged(const QRect& rect)
 
     if (m_controlBar)
         m_controlBar->snapToRegion(rect);
+
+    // Keep the worker's region current so it captures the new position live.
+    if (m_worker)
+        m_worker->setCaptureRegion(m_region);
+}
+
+void AppController::onRecordingFinished()
+{
+    setState(AppState::Processing);
+    // TODO: hand frames to encoder worker
+    setState(AppState::Idle);
+}
+
+void AppController::onProgressUpdated(qint64 elapsedMs)
+{
+    emit recordingProgress(elapsedMs);
 }
 
 // ---------------------------------------------------------------------------
 // Helpers
+// ---------------------------------------------------------------------------
+
+void AppController::attachWorker(RecorderWorker* worker)
+{
+    teardownWorker();
+
+    m_worker       = worker;
+    m_workerThread = new QThread(this);
+    m_worker->moveToThread(m_workerThread);
+
+    // Worker → controller
+    connect(m_worker, &RecorderWorker::recordingFinished,
+            this,     &AppController::onRecordingFinished,
+            Qt::QueuedConnection);
+    connect(m_worker, &RecorderWorker::progressUpdated,
+            this,     &AppController::onProgressUpdated,
+            Qt::QueuedConnection);
+
+    // Clean up the thread when the worker is done
+    connect(m_worker, &RecorderWorker::recordingFinished,
+            m_workerThread, &QThread::quit,
+            Qt::QueuedConnection);
+    connect(m_workerThread, &QThread::finished,
+            m_worker, &QObject::deleteLater);
+
+    m_workerThread->start();
+}
+
+void AppController::teardownWorker()
+{
+    if (!m_workerThread)
+        return;
+    m_workerThread->quit();
+    m_workerThread->wait();
+    // m_worker deleted by deleteLater connection above
+    m_worker       = nullptr;
+    m_workerThread = nullptr;
+}
 // ---------------------------------------------------------------------------
 
 void AppController::setState(AppState s)

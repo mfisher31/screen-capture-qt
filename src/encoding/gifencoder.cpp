@@ -3,6 +3,7 @@
 
 #include <QImage>
 #include <QDebug>
+#include <QScreen>
 
 #include <gif_lib.h>
 
@@ -38,15 +39,49 @@ void GifEncoder::encode()
     int gifError = GIF_OK;
     const QByteArray pathBytes = m_outputPath.toUtf8();
 
-    // Determine output dimensions from the first frame.
-    QImage firstImg = m_store->frameAt(0).frame.toImage();
+    // Determine crop rect from the first frame's region.
+    // CaptureRegion.rect is in logical pixels, global screen coordinates.
+    // QScreenCapture gives us the full screen in physical pixels.
+    // We need to:
+    //   1. Make the rect relative to the screen's top-left (subtract screen origin)
+    //   2. Scale by devicePixelRatio to get physical pixel coordinates
+    //   3. Clamp to the actual image bounds
+    const TaggedFrame& firstTagged = m_store->frameAt(0);
+    QImage firstImg = firstTagged.frame.toImage();
     if (firstImg.isNull()) {
         emit failed(QStringLiteral("First frame could not be decoded."));
         return;
     }
 
-    int outW = firstImg.width();
-    int outH = firstImg.height();
+    // Compute the physical crop rect.
+    QRect cropRect;
+    {
+        const CaptureRegion& region = firstTagged.region;
+        const qreal dpr = region.screen ? region.screen->devicePixelRatio() : 1.0;
+        const QRect screenLogical = region.screen ? region.screen->geometry() : QRect(0, 0, firstImg.width(), firstImg.height());
+
+        // Region rect is in global logical coords — make it screen-relative.
+        QRect localLogical = region.rect.translated(-screenLogical.topLeft());
+
+        // Scale to physical pixels.
+        cropRect = QRect(
+            qRound(localLogical.x()      * dpr),
+            qRound(localLogical.y()      * dpr),
+            qRound(localLogical.width()  * dpr),
+            qRound(localLogical.height() * dpr)
+        );
+
+        // Clamp to image bounds.
+        cropRect = cropRect.intersected(QRect(0, 0, firstImg.width(), firstImg.height()));
+    }
+
+    if (cropRect.isEmpty()) {
+        // Fallback: use full frame.
+        cropRect = QRect(0, 0, firstImg.width(), firstImg.height());
+    }
+
+    int outW = cropRect.width();
+    int outH = cropRect.height();
     if (m_gifSettings.maxWidth > 0 && outW > m_gifSettings.maxWidth) {
         outH = outH * m_gifSettings.maxWidth / outW;
         outW = m_gifSettings.maxWidth;
@@ -87,7 +122,10 @@ void GifEncoder::encode()
         if (img.isNull())
             continue;
 
-        // Scale if needed.
+        // Crop to the capture region.
+        img = img.copy(cropRect);
+
+        // Scale to output dimensions if needed.
         if (img.width() != outW || img.height() != outH)
             img = img.scaled(outW, outH, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
 

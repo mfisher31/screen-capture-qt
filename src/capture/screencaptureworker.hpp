@@ -54,8 +54,9 @@ private:
     qint64        m_lastFrameMs = -1;  // ms timestamp of last emitted frame
     qint64        m_frameIntervalMs;   // 1000 / settings.fps
 
-    bool m_running = false;
-    bool m_paused  = false;
+    bool m_running       = false;
+    bool m_paused        = false;
+    bool m_errorReported = false;  // prevent duplicate dialogs from queued signals
 };
 
 } // namespace sc

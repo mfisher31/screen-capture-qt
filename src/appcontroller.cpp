@@ -6,6 +6,10 @@
 #include "ui/capturewindow.hpp"
 #include "ui/controlbar.hpp"
 
+#ifdef Q_OS_MAC
+#  include "platform/macos_window.h"
+#endif
+
 #include <QDateTime>
 #include <QDir>
 #include <QGuiApplication>
@@ -41,6 +45,12 @@ AppController::~AppController()
 
 void AppController::start()
 {
+#ifdef Q_OS_MAC
+    // Trigger the TCC screen recording consent prompt at startup so the
+    // system dialog appears before the user clicks Record, not racing with it.
+    requestScreenRecordingPermission();
+#endif
+
     m_captureWindow = new CaptureWindow(this);
     m_controlBar    = new ControlBar(m_captureWindow);
 

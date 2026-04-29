@@ -7,3 +7,10 @@
 // Call once, deferred via QTimer::singleShot(0,...) from showEvent — the
 // NSWindow handle is not valid until after the first paint cycle.
 void excludeWindowFromScreenCapture(void* nativeWindowHandle);
+
+// Proactively checks screen recording permission and triggers the macOS TCC
+// consent prompt if not yet granted. Call once at app startup (before any
+// QScreenCapture usage) so the system dialog appears at a predictable moment
+// rather than racing with the first recording attempt.
+// Returns true if permission is already granted, false otherwise.
+bool requestScreenRecordingPermission();

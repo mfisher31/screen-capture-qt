@@ -73,6 +73,7 @@ void ScreenCaptureWorker::start()
 
     m_running = true;
     m_paused  = false;
+    m_errorReported = false;
     m_lastFrameMs = -1;
     m_elapsed.start();
     m_progressTimer->start();
@@ -156,6 +157,12 @@ void ScreenCaptureWorker::onFrameReceived(const QVideoFrame& videoFrame)
 
 void ScreenCaptureWorker::onCaptureError(int /*error*/, const QString& message)
 {
+    // Guard: QueuedConnection can queue multiple error signals before stop()
+    // runs. Only report and stop once.
+    if (m_errorReported)
+        return;
+    m_errorReported = true;
+
     // On macOS, error code 1 = "screen recording permission not granted".
     // Surface the message to AppController for display.
     emit errorOccurred(message);

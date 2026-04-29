@@ -1,6 +1,23 @@
 #include "macos_window.h"
 
 #import <AppKit/AppKit.h>
+#import <CoreGraphics/CoreGraphics.h>
+
+bool requestScreenRecordingPermission()
+{
+    // CGPreflightScreenCaptureAccess / CGRequestScreenCaptureAccess are
+    // available since macOS 10.15 (Catalina). They interact with TCC directly:
+    // preflight returns the current grant status without prompting, and
+    // request shows the system consent dialog if not yet decided.
+    if (CGPreflightScreenCaptureAccess()) {
+        return true; // already granted
+    }
+    // Trigger the "Allow to record your screen?" system prompt.
+    // The call returns false initially (permission is async); the app should
+    // check again after the user responds.
+    CGRequestScreenCaptureAccess();
+    return false;
+}
 
 void excludeWindowFromScreenCapture(void* nativeWindowHandle)
 {

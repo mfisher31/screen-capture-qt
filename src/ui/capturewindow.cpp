@@ -64,6 +64,8 @@ CaptureWindow::CaptureWindow(QObject* /*controller*/, QWidget* parent)
     m_labelItem->setFont(labelFont);
     m_labelItem->setBrush(borderColor());
     m_labelItem->setZValue(2);
+    // hide the dimensions label. redundant saving for later.
+    m_labelItem->setVisible(false);
 
     // 8 resize handles: corners (0-3) then edge midpoints (4-7)
     for (int i = 0; i < 8; ++i) {

@@ -49,12 +49,21 @@ private:
     void mouseReleaseEvent(QMouseEvent* event) override;
     void showEvent(QShowEvent* event) override;
 
+    bool isInGripZone(const QPoint& localPos) const;
+
     CaptureWindow* m_captureWindow = nullptr;
     QTimer*        m_snapTimer     = nullptr;
 
+    // Bar-background drag (moves the whole apparatus)
     bool   m_dragging    = false;
-    QPoint m_dragStart;        // global cursor position at press
-    QPoint m_captureOrigin;    // capture window top-left at press
+    QPoint m_dragStart;
+    QPoint m_captureOrigin;
+
+    // Resize-grip drag (bottom-right corner of the bar)
+    bool   m_resizing          = false;
+    QRect  m_captureRectAtPress;
+
+    static constexpr int kGripSize = 18;  // px square of the resize hit zone
 
     QLabel*      m_statusLabel     = nullptr;
     QLabel*      m_dimensionsLabel = nullptr;

@@ -30,6 +30,10 @@ public:
 
     explicit CaptureWindow(QObject* controller, QWidget* parent = nullptr);
 
+    // Returns the aspect ratio locked at record-start (width/height), or 0.0
+    // if not currently locked. Used by ControlBar's resize grip.
+    double lockedAspect() const { return m_lockedAspect; }
+
 signals:
     void regionChanged(const QRect& rect);
 

@@ -119,6 +119,17 @@ void ControlBar::buildUi()
     m_closeButton->setFixedWidth(28);
     connect(m_closeButton, &QPushButton::clicked, qApp, &QApplication::quit);
     layout->addWidget(m_closeButton);
+
+    // Resize grip — a small visual indicator at the right edge of the bar.
+    // Hit zone is kGripSize px wide; cursor changes on hover.
+    auto* grip = new QLabel("⊿", this);
+    grip->setFixedWidth(kGripSize);
+    grip->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    grip->setStyleSheet(QString("color: #475569; font-size: %1px;").arg(kBarHeight - 10));
+    grip->setCursor(Qt::SizeFDiagCursor);
+    grip->setAttribute(Qt::WA_TransparentForMouseEvents); // bar handles the events
+    layout->addWidget(grip);
+    layout->setContentsMargins(8, 0, 0, 0); // remove right margin; grip provides it
 }
 
 // ---------------------------------------------------------------------------
@@ -205,32 +216,71 @@ void ControlBar::updateUiForState(AppState state)
 }
 
 // ---------------------------------------------------------------------------
-// Drag the whole apparatus by clicking the bar background
+// Drag the whole apparatus by clicking the bar background;
+// resize the capture window by dragging the bottom-right grip zone.
 // ---------------------------------------------------------------------------
+
+bool ControlBar::isInGripZone(const QPoint& localPos) const
+{
+    return localPos.x() >= width() - kGripSize;
+}
 
 void ControlBar::mousePressEvent(QMouseEvent* event)
 {
     if (event->button() == Qt::LeftButton && m_captureWindow) {
-        m_dragging      = true;
-        m_dragStart     = event->globalPosition().toPoint();
-        m_captureOrigin = m_captureWindow->pos();
+        if (isInGripZone(event->pos())) {
+            m_resizing          = true;
+            m_dragStart         = event->globalPosition().toPoint();
+            m_captureRectAtPress = m_captureWindow->geometry();
+        } else {
+            m_dragging      = true;
+            m_dragStart     = event->globalPosition().toPoint();
+            m_captureOrigin = m_captureWindow->pos();
+        }
     }
     QWidget::mousePressEvent(event);
 }
 
 void ControlBar::mouseMoveEvent(QMouseEvent* event)
 {
-    if (m_dragging && m_captureWindow) {
+    if (!m_captureWindow) {
+        QWidget::mouseMoveEvent(event);
+        return;
+    }
+
+    if (m_resizing) {
+        QPoint delta = event->globalPosition().toPoint() - m_dragStart;
+        QRect r = m_captureRectAtPress;
+
+        int newW = qMax(CaptureWindow::kMinDimension, r.width()  + delta.x());
+        int newH = qMax(CaptureWindow::kMinDimension, r.height() + delta.y());
+
+        // If the capture window has an aspect lock (recording), derive height
+        // from width so the zoom stays proportional.
+        double aspect = m_captureWindow->lockedAspect();
+        if (aspect > 0.0)
+            newH = qMax(CaptureWindow::kMinDimension, int(newW / aspect));
+
+        r.setWidth(newW);
+        r.setHeight(newH);
+        m_captureWindow->setGeometry(r);
+    } else if (m_dragging) {
         QPoint delta = event->globalPosition().toPoint() - m_dragStart;
         m_captureWindow->move(m_captureOrigin + delta);
+    } else {
+        // Cursor feedback on hover
+        setCursor(isInGripZone(event->pos()) ? Qt::SizeFDiagCursor
+                                             : Qt::ArrowCursor);
     }
     QWidget::mouseMoveEvent(event);
 }
 
 void ControlBar::mouseReleaseEvent(QMouseEvent* event)
 {
-    if (event->button() == Qt::LeftButton)
-        m_dragging = false;
+    if (event->button() == Qt::LeftButton) {
+        m_dragging  = false;
+        m_resizing  = false;
+    }
     QWidget::mouseReleaseEvent(event);
 }
 

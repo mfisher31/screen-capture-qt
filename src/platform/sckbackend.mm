@@ -87,6 +87,14 @@ API_AVAILABLE(macos(12.3))
     const int      height = (int)CVPixelBufferGetHeight(pixelBuffer);
     const int      stride = (int)CVPixelBufferGetBytesPerRow(pixelBuffer);
 
+    static std::atomic<int> s_logged{0};
+    if (s_logged.fetch_add(1) < 3) {
+        qDebug("[SCK] frame %d: pixelbuffer %dx%d stride=%d fmt=%u",
+               s_logged.load(),
+               width, height, stride,
+               (unsigned)CVPixelBufferGetPixelFormatType(pixelBuffer));
+    }
+
     // kCVPixelFormatType_32BGRA → BGRA in memory = QImage::Format_ARGB32 on LE ARM/x86.
     QImage img(base, width, height, stride, QImage::Format_ARGB32);
     QImage copy = img.copy();   // detach from pixel buffer memory before unlock

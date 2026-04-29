@@ -47,26 +47,29 @@ void GifEncoder::encode()
     //   3. Clamp to the actual image bounds
     auto computeCropRect = [](const TaggedFrame& tf, const QImage& img) -> QRect {
         const CaptureRegion& region = tf.region;
-        const qreal dpr = region.screen ? region.screen->devicePixelRatio() : 1.0;
         const QRect screenLogical = region.screen
             ? region.screen->geometry()
             : QRect(0, 0, img.width(), img.height());
 
+        // Compute the actual scale factor from measured frame vs. logical screen
+        // dimensions. The backend may deliver frames at logical (1x) or physical
+        // (dpr x) resolution depending on the SCK config — don't assume.
+        const qreal scaleX = screenLogical.width()  > 0
+            ? (qreal)img.width()  / screenLogical.width()  : 1.0;
+        const qreal scaleY = screenLogical.height() > 0
+            ? (qreal)img.height() / screenLogical.height() : 1.0;
+
         QRect localLogical = region.rect.translated(-screenLogical.topLeft());
-        qDebug("[GIF] region.rect=%dx%d+%d+%d  screen=%dx%d+%d+%d  local=%dx%d+%d+%d",
-               region.rect.width(), region.rect.height(), region.rect.x(), region.rect.y(),
-               screenLogical.width(), screenLogical.height(), screenLogical.x(), screenLogical.y(),
-               localLogical.width(), localLogical.height(), localLogical.x(), localLogical.y());
-        QRect physical(
-            qRound(localLogical.x()      * dpr),
-            qRound(localLogical.y()      * dpr),
-            qRound(localLogical.width()  * dpr),
-            qRound(localLogical.height() * dpr)
+        QRect scaled(
+            qRound(localLogical.x()      * scaleX),
+            qRound(localLogical.y()      * scaleY),
+            qRound(localLogical.width()  * scaleX),
+            qRound(localLogical.height() * scaleY)
         );
-        physical = physical.intersected(QRect(0, 0, img.width(), img.height()));
-        if (physical.isEmpty())
-            physical = QRect(0, 0, img.width(), img.height());
-        return physical;
+        scaled = scaled.intersected(QRect(0, 0, img.width(), img.height()));
+        if (scaled.isEmpty())
+            scaled = QRect(0, 0, img.width(), img.height());
+        return scaled;
     };
 
     // Determine output dimensions from the first frame — the GIF logical
@@ -79,16 +82,21 @@ void GifEncoder::encode()
     }
 
     const QRect firstCrop = computeCropRect(firstTagged, firstImg);
-    const qreal dpr = firstTagged.region.screen
-        ? firstTagged.region.screen->devicePixelRatio() : 1.0;
-    // Convert physical crop dimensions to logical (1x) pixel output size.
-    int outW = qRound(firstCrop.width()  / dpr);
-    int outH = qRound(firstCrop.height() / dpr);
+    // Output dimensions in pixels. The crop rect is already in the frame's
+    // native coordinate space (logical or physical depending on backend), so
+    // we divide by the actual measured scale to always output logical-size GIFs.
+    const QRect screenLogical0 = firstTagged.region.screen
+        ? firstTagged.region.screen->geometry()
+        : QRect(0, 0, firstImg.width(), firstImg.height());
+    const qreal scaleX0 = screenLogical0.width()  > 0
+        ? (qreal)firstImg.width()  / screenLogical0.width()  : 1.0;
+    int outW = qRound(firstCrop.width()  / scaleX0);
+    int outH = qRound(firstCrop.height() / scaleX0);  // uniform scale; use scaleX0
 
-    qDebug("[GIF] source frame: %dx%d  crop: %dx%d+%d+%d  dpr: %.1f  logical out: %dx%d",
+    qDebug("[GIF] source frame: %dx%d  crop: %dx%d+%d+%d  scale: %.2f  out: %dx%d",
            firstImg.width(), firstImg.height(),
            firstCrop.width(), firstCrop.height(), firstCrop.x(), firstCrop.y(),
-           dpr, outW, outH);
+           scaleX0, outW, outH);
 
     if (m_gifSettings.maxWidth > 0 && outW > m_gifSettings.maxWidth) {
         outH = outH * m_gifSettings.maxWidth / outW;

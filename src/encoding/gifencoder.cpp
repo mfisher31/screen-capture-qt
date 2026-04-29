@@ -53,6 +53,10 @@ void GifEncoder::encode()
             : QRect(0, 0, img.width(), img.height());
 
         QRect localLogical = region.rect.translated(-screenLogical.topLeft());
+        qDebug("[GIF] region.rect=%dx%d+%d+%d  screen=%dx%d+%d+%d  local=%dx%d+%d+%d",
+               region.rect.width(), region.rect.height(), region.rect.x(), region.rect.y(),
+               screenLogical.width(), screenLogical.height(), screenLogical.x(), screenLogical.y(),
+               localLogical.width(), localLogical.height(), localLogical.x(), localLogical.y());
         QRect physical(
             qRound(localLogical.x()      * dpr),
             qRound(localLogical.y()      * dpr),
@@ -75,8 +79,17 @@ void GifEncoder::encode()
     }
 
     const QRect firstCrop = computeCropRect(firstTagged, firstImg);
-    int outW = firstCrop.width();
-    int outH = firstCrop.height();
+    const qreal dpr = firstTagged.region.screen
+        ? firstTagged.region.screen->devicePixelRatio() : 1.0;
+    // Convert physical crop dimensions to logical (1x) pixel output size.
+    int outW = qRound(firstCrop.width()  / dpr);
+    int outH = qRound(firstCrop.height() / dpr);
+
+    qDebug("[GIF] source frame: %dx%d  crop: %dx%d+%d+%d  dpr: %.1f  logical out: %dx%d",
+           firstImg.width(), firstImg.height(),
+           firstCrop.width(), firstCrop.height(), firstCrop.x(), firstCrop.y(),
+           dpr, outW, outH);
+
     if (m_gifSettings.maxWidth > 0 && outW > m_gifSettings.maxWidth) {
         outH = outH * m_gifSettings.maxWidth / outW;
         outW = m_gifSettings.maxWidth;

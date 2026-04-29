@@ -50,7 +50,7 @@ void BufferedStrategy::finish()
 
     GifExportSettings gifSettings;
     gifSettings.outputFps = qMin(10, m_settings.fps);
-    gifSettings.maxWidth  = 800;
+    gifSettings.maxWidth  = 0;  // 0 = no scaling; honour the actual capture size
     gifSettings.quality   = m_settings.quality;
 
     // Tear down any leftover encoder thread (shouldn't happen, defensive).

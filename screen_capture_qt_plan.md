@@ -1494,3 +1494,9 @@ Unit tests use `Qt6::Test`. Test targets cover: `CaptureRegion` resize/clamp log
 13. MP4/WebM via QMediaRecorder or ffmpeg subprocess
 14. Upload/share links
 
+---
+
+# Nice-to-haves
+
+- **High-DPI GIF output**: GIF encoder currently divides physical crop dimensions by `dpr` to produce 1× logical output (e.g. 1277×752 on a 2× Retina display). A `GifExportSettings::hiRes` flag could skip the division and write at full physical resolution (2554×1504) for users who want maximum quality at the cost of file size.
+

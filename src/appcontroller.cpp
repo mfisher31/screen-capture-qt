@@ -1,8 +1,8 @@
 #include "appcontroller.hpp"
 #include "recorderworker.hpp"
 #include "capture/screencaptureworker.hpp"
-#include "capture/framestore.hpp"
-#include "encoding/gifencoder.hpp"
+#include "recordingstrategy.hpp"
+#include "bufferedstrategy.hpp"
 #include "ui/capturewindow.hpp"
 #include "ui/controlbar.hpp"
 
@@ -10,19 +10,15 @@
 #  include "platform/macos_window.h"
 #endif
 
-#include <QDateTime>
-#include <QDir>
 #include <QGuiApplication>
 #include <QMessageBox>
 #include <QScreen>
-#include <QStandardPaths>
 #include <QThread>
 
 namespace sc {
 
 AppController::AppController(QObject* parent)
     : QObject(parent)
-    , m_frameStore(new FrameStore(this))
 {
     loadSettings();
 
@@ -87,17 +83,24 @@ void AppController::onStartRequested()
     if (m_state != AppState::Idle)
         return;
 
-    m_frameStore->clear();
+    // Create strategy before the worker so it's ready to receive frames.
+    // Currently only BufferedStrategy (GIF); StreamingStrategy added Phase 2.
+    m_strategy = new BufferedStrategy(m_settings, this);
+    connect(m_strategy, &RecordingStrategy::encodingProgress,
+            this, &AppController::onEncodingProgress);
+    connect(m_strategy, &RecordingStrategy::encodingFinished,
+            this, &AppController::onEncodingFinished);
+    connect(m_strategy, &RecordingStrategy::encodingFailed,
+            this, &AppController::onEncodingFailed);
 
     auto* worker = new ScreenCaptureWorker(m_region, m_settings);
     attachWorker(worker);
 
-    // Every kept frame is buffered into FrameStore on the main thread.
-    // The QImage and CaptureRegion are both emitted by the worker at
-    // capture time, so no additional region snapshot is needed here.
+    // Route captured frames to the strategy.
     connect(worker, &RecorderWorker::frameReady,
             this, [this](const QImage& image, const sc::CaptureRegion& region) {
-                m_frameStore->addFrame(image, region);
+                if (m_strategy)
+                    m_strategy->onFrame(image, region);
             },
             Qt::QueuedConnection);
 
@@ -154,56 +157,12 @@ void AppController::onRegionChanged(const QRect& rect)
 
 void AppController::onRecordingFinished()
 {
-    qDebug("Recording finished. Frames buffered: %d", m_frameStore->frameCount());
     setState(AppState::Processing);
 
-    if (m_frameStore->frameCount() == 0) {
-        qWarning("No frames captured — skipping GIF export.");
+    if (m_strategy)
+        m_strategy->finish();
+    else
         setState(AppState::Idle);
-        return;
-    }
-
-    // Build output path: ~/Movies/capture-YYYY-MM-DD-HHMMSS.gif
-    const QString timestamp =
-        QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd-HHmmss"));
-    const QString outputDir = m_settings.outputDir.isEmpty()
-        ? QStandardPaths::writableLocation(QStandardPaths::MoviesLocation)
-        : m_settings.outputDir;
-    QDir().mkpath(outputDir);
-    const QString outputPath =
-        outputDir + QDir::separator() +
-        QStringLiteral("capture-%1.gif").arg(timestamp);
-
-    GifExportSettings gifSettings;
-    gifSettings.outputFps = qMin(10, m_settings.fps);  // cap at 10 fps for GIF
-    gifSettings.maxWidth  = 800;
-    gifSettings.quality   = m_settings.quality;
-
-    // Tear down any leftover encoder thread from a previous recording.
-    if (m_encoderThread) {
-        m_encoderThread->quit();
-        m_encoderThread->wait();
-        m_encoderThread->deleteLater();
-        m_encoderThread = nullptr;
-    }
-
-    m_encoderThread = new QThread(this);
-    auto* encoder = new GifEncoder(m_frameStore, gifSettings, m_settings.fps, outputPath);
-    encoder->moveToThread(m_encoderThread);
-
-    connect(m_encoderThread, &QThread::started,
-            encoder, &GifEncoder::encode);
-    connect(encoder, &GifEncoder::progress,
-            this, &AppController::onEncodingProgress);
-    connect(encoder, &GifEncoder::finished,
-            this, &AppController::onEncodingFinished);
-    connect(encoder, &GifEncoder::failed,
-            this, &AppController::onEncodingFailed);
-    // Clean up encoder object when thread finishes.
-    connect(m_encoderThread, &QThread::finished,
-            encoder, &QObject::deleteLater);
-
-    m_encoderThread->start();
 }
 
 void AppController::onProgressUpdated(qint64 elapsedMs)
@@ -230,12 +189,11 @@ void AppController::onEncodingProgress(float fraction)
 
 void AppController::onEncodingFinished(const QString& filePath)
 {
-    qDebug() << "GIF saved:" << filePath;
-    if (m_encoderThread) {
-        m_encoderThread->quit();
-        m_encoderThread->wait();
-        m_encoderThread->deleteLater();
-        m_encoderThread = nullptr;
+    qDebug() << "Output saved:" << filePath;
+    // Strategy has finished — release it.
+    if (m_strategy) {
+        m_strategy->deleteLater();
+        m_strategy = nullptr;
     }
     setState(AppState::Idle);
     // TODO (Milestone 6): open preview
@@ -243,12 +201,10 @@ void AppController::onEncodingFinished(const QString& filePath)
 
 void AppController::onEncodingFailed(const QString& reason)
 {
-    qWarning() << "GIF encoding failed:" << reason;
-    if (m_encoderThread) {
-        m_encoderThread->quit();
-        m_encoderThread->wait();
-        m_encoderThread->deleteLater();
-        m_encoderThread = nullptr;
+    qWarning() << "Encoding failed:" << reason;
+    if (m_strategy) {
+        m_strategy->deleteLater();
+        m_strategy = nullptr;
     }
     QMessageBox::critical(
         m_controlBar,

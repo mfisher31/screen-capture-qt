@@ -17,6 +17,8 @@ set(SOURCES
     src/main.cpp
     src/appcontroller.cpp
     src/recorderworker.cpp
+    src/recordingstrategy.hpp
+    src/bufferedstrategy.cpp
     src/capture/screencaptureworker.cpp
     src/capture/framestore.cpp
     src/encoding/gifencoder.cpp

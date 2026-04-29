@@ -100,8 +100,7 @@ struct RecordingSettings {
 class CaptureWindow;
 class ControlBar;
 class RecorderWorker;
-class FrameStore;
-class GifEncoder;
+class RecordingStrategy;
 
 class AppController : public QObject {
     Q_OBJECT
@@ -148,12 +147,11 @@ private:
     CaptureRegion m_region;
     RecordingSettings m_settings;
 
-    CaptureWindow*  m_captureWindow  = nullptr;
-    ControlBar*     m_controlBar     = nullptr;
-    RecorderWorker* m_worker         = nullptr;
-    QThread*        m_workerThread   = nullptr;
-    FrameStore*     m_frameStore     = nullptr;
-    QThread*        m_encoderThread  = nullptr;
+    CaptureWindow*     m_captureWindow  = nullptr;
+    ControlBar*        m_controlBar     = nullptr;
+    RecorderWorker*    m_worker         = nullptr;
+    QThread*           m_workerThread   = nullptr;
+    RecordingStrategy* m_strategy       = nullptr;  // owned; created per recording
 };
 
 } // namespace sc

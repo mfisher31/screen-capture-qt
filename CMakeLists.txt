@@ -9,9 +9,15 @@ set(CMAKE_AUTOUIC ON)
 
 # Find Qt6 — prefer the standard ~/Qt install location on macOS
 set(QT_DEFAULT_MAJOR_VERSION 6)
-list(PREPEND CMAKE_PREFIX_PATH "$ENV{HOME}/Qt/6.11.0/macos")
 
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Multimedia MultimediaWidgets OpenGL OpenGLWidgets Test)
+if(APPLE)
+list(PREPEND CMAKE_PREFIX_PATH "$ENV{HOME}/Qt/6.11.0/macos")
+elseif(LINUX)
+list(PREPEND CMAKE_PREFIX_PATH "$ENV{HOME}/Qt/6.11.0/gcc_64")
+elseif(WIN32)
+endif()
+
+find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Widgets Multimedia MultimediaWidgets OpenGL OpenGLWidgets Test)
 
 set(SOURCES
     src/main.cpp
@@ -38,6 +44,10 @@ else()
     )
 endif()
 
+if(UNIX AND NOT APPLE)
+    list(APPEND SOURCES src/platform/x11_window.cpp)
+endif()
+
 set(HEADERS
     src/appcontroller.hpp
     src/recorderworker.hpp
@@ -45,14 +55,21 @@ set(HEADERS
     src/capture/framestore.hpp
     src/encoding/gifencoder.hpp
     src/platform/screencapturebackend.hpp
-    src/platform/sckbackend.hpp
-    src/platform/macos_window.h
     src/ui/capturewindow.hpp
     src/ui/controlbar.hpp
 )
 
-if(NOT APPLE)
+if(APPLE)
+    list(APPEND HEADERS
+        src/platform/sckbackend.hpp
+        src/platform/macos_window.h
+    )
+else()
     list(APPEND HEADERS src/platform/qtscreenbackend.hpp)
+endif()
+
+if(UNIX AND NOT APPLE)
+    list(APPEND HEADERS src/platform/x11_window.hpp)
 endif()
 
 qt_add_executable(screen-capture-qt
@@ -95,6 +112,11 @@ if(APPLE)
         "-framework CoreVideo"
         "-framework CoreGraphics"
     )
+endif()
+
+if(UNIX AND NOT APPLE)
+    # XShape extension (libXext) for real click-through on X11
+    target_link_libraries(screen-capture-qt PRIVATE Xext X11)
 endif()
 
 # macOS bundle settings

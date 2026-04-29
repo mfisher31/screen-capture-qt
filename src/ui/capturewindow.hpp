@@ -79,6 +79,10 @@ private:
     HitZone m_dragZone   = HitZone::None;
     QPoint  m_dragStart;      // global position at press
     QRect   m_rectAtPress;    // window geometry at press
+
+    // When recording, resize is constrained to the aspect ratio captured at
+    // record-start, creating a zoom effect. 0.0 = unlocked (not recording).
+    double  m_lockedAspect = 0.0;
 };
 
 } // namespace sc

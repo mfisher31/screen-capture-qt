@@ -13,6 +13,9 @@
 #ifdef Q_OS_MACOS
 #include "../platform/macos_window.h"
 #endif
+#ifdef Q_OS_LINUX
+#include "../platform/x11_window.hpp"
+#endif
 
 namespace sc {
 
@@ -80,10 +83,27 @@ void CaptureWindow::onStateChanged(sc::AppState state)
 {
     m_state = state;
 
+    // Lock aspect ratio at the moment recording starts so that resizing
+    // during recording produces a zoom effect rather than a crop change.
+    if (state == AppState::Recording)
+        m_lockedAspect = width() > 0 ? double(width()) / double(height()) : 0.0;
+    else
+        m_lockedAspect = 0.0;
+
     // Enable click-through while recording so the user can interact with
     // whatever is underneath the capture region.
-    bool passthrough = (state == AppState::Recording);
+    // WA_TransparentForMouseEvents alone is insufficient — it only affects
+    // Qt's internal dispatch. Real click-through requires a platform call:
+    //   macOS: NSWindow.ignoresMouseEvents
+    //   Linux/X11: XShape input region set to empty
+    const bool passthrough = (state == AppState::Recording);
     setAttribute(Qt::WA_TransparentForMouseEvents, passthrough);
+#ifdef Q_OS_MACOS
+    setWindowClickThrough(reinterpret_cast<void*>(winId()), passthrough);
+#endif
+#ifdef Q_OS_LINUX
+    sc::setWindowClickThrough(winId(), passthrough);
+#endif
 
     // Update border/handle colors and handle visibility — no repaint needed;
     // QGraphicsItem::setPen/setBrush triggers only the affected item's redraw.
@@ -237,6 +257,35 @@ void CaptureWindow::mouseMoveEvent(QMouseEvent* event)
         if (r.height() < kMinDimension) r.setBottom(r.top()  + kMinDimension);
         break;
     default: break;
+    }
+
+    // Constrain to locked aspect ratio while recording (zoom effect).
+    // Body drags (move) are exempt — only resize operations are constrained.
+    if (m_lockedAspect > 0.0 && m_dragZone != HitZone::Body) {
+        // Anchor point depends on which edge/corner is being dragged.
+        // We keep the opposite corner fixed and adjust whichever free
+        // dimension is smaller relative to the aspect ratio.
+        const bool anchorRight  = (m_dragZone == HitZone::CornerTL ||
+                                   m_dragZone == HitZone::CornerBL ||
+                                   m_dragZone == HitZone::EdgeLeft);
+        const bool anchorBottom = (m_dragZone == HitZone::CornerTL ||
+                                   m_dragZone == HitZone::CornerTR ||
+                                   m_dragZone == HitZone::EdgeTop);
+
+        // Derive the constrained height from the current width, then fix.
+        int newW = r.width();
+        int newH = qMax(kMinDimension, int(newW / m_lockedAspect));
+        newW     = qMax(kMinDimension, int(newH * m_lockedAspect));
+
+        if (anchorRight)
+            r.setLeft(r.right() - newW);
+        else
+            r.setRight(r.left() + newW);
+
+        if (anchorBottom)
+            r.setTop(r.bottom() - newH);
+        else
+            r.setBottom(r.top() + newH);
     }
 
     setGeometry(r);

@@ -53,3 +53,14 @@ void setWindowCaptureExcluded(void* nativeWindowHandle, bool excluded)
         return;
     window.sharingType = excluded ? NSWindowSharingNone : NSWindowSharingReadOnly;
 }
+
+void setWindowClickThrough(void* nativeWindowHandle, bool enabled)
+{
+    if (!nativeWindowHandle)
+        return;
+    NSView*   view   = reinterpret_cast<NSView*>(nativeWindowHandle);
+    NSWindow* window = [view window];
+    if (!window)
+        return;
+    window.ignoresMouseEvents = enabled ? YES : NO;
+}

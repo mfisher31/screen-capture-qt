@@ -20,3 +20,10 @@ bool requestScreenRecordingPermission();
 // nativeWindowHandle is QWidget::winId() cast to void* — i.e. an NSView*.
 // Must be called on the main thread.
 unsigned int cgWindowIdForNativeHandle(void* nativeWindowHandle);
+
+// Makes the window ignore all mouse events (click-through) when enabled is true,
+// or restores normal hit-testing when false.
+// Uses NSWindow.ignoresMouseEvents — unlike WA_TransparentForMouseEvents this
+// is enforced at the window server level, so clicks pass through to whatever
+// is behind the window regardless of Qt's own event filtering.
+void setWindowClickThrough(void* nativeWindowHandle, bool enabled);

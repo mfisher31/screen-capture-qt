@@ -1374,6 +1374,20 @@ Mitigation:
 - Test macOS first; add an Objective-C++ bridge if needed
 - Treat Linux Wayland as a special case
 
+## Linux Window Exclusion from Capture
+
+On macOS, `SckScreenCaptureBackend` uses `[SCContentFilter initWithDisplay:excludingWindows:]` to exclude the capture overlay from the recorded frames at the capture API level. No equivalent exists on Linux:
+
+- **X11**: `QScreenCapture` and raw `XShmGetImage` both capture the composited root window, which includes all windows. Using XComposite per-window pixmaps to reconstruct the scene while skipping the overlay would work in theory but is tantamount to reimplementing a compositor.
+- **Wayland/PipeWire**: `org.freedesktop.portal.ScreenCast` has no window exclusion parameter.
+- **Compositor-specific atoms**: KWin and some compositors support screenshot-exclude properties, but these are non-standard and cannot be relied upon.
+
+Consequence: on Linux the capture frame border will appear in the recording. Hiding the border during recording is **not** an acceptable workaround — the frame must remain visible to the user at all times.
+
+Risk level: medium (cosmetic defect; does not block shipping)
+
+Proper long-term fix: implement an `XcbScreenCaptureBackend` that uses XComposite + XShm to grab individual window pixmaps and re-composite the screen image in software, deliberately excluding the overlay window. This is a significant scope item and is deferred.
+
 ## Screen Capture APIs
 
 `QScreenCapture` requires Qt 6.5+ and the Qt Multimedia module. On macOS the user must grant screen recording permission; `QScreenCapture` does not prompt automatically — the app must detect and explain the failure.
@@ -1499,5 +1513,6 @@ Unit tests use `Qt6::Test`. Test targets cover: `CaptureRegion` resize/clamp log
 # Nice-to-haves
 
 - **High-DPI GIF output**: GIF encoder currently divides physical crop dimensions by `dpr` to produce 1× logical output (e.g. 1277×752 on a 2× Retina display). A `GifExportSettings::hiRes` flag could skip the division and write at full physical resolution (2554×1504) for users who want maximum quality at the cost of file size.
-- **Proper SCK window exclusion**: `NSWindowSharingNone` is respected by macOS screenshot (SCK with `excludingWindows:` filter) but NOT by Qt's `QScreenCapture` (which creates its SCK stream without an exclusion list). Workaround: the capture window border is hidden during recording. Proper fix requires replacing `QScreenCapture` with a direct SCK implementation using `[SCContentFilter initWithDisplay:excludingWindows:]` to exclude our overlay windows.
+- **Proper SCK window exclusion (macOS)**: `NSWindowSharingNone` is respected by macOS screenshot (SCK with `excludingWindows:` filter) but NOT by Qt's `QScreenCapture` (which creates its SCK stream without an exclusion list). Proper fix requires replacing `QScreenCapture` with a direct SCK implementation using `[SCContentFilter initWithDisplay:excludingWindows:]` to exclude our overlay windows. `SckScreenCaptureBackend` already implements this.
+- **Linux window exclusion**: No portable API exists to exclude a specific window from capture on Linux (X11 or Wayland). The capture frame border will be visible in recordings. A future `XcbScreenCaptureBackend` using XComposite+XShm could fix this by re-compositing from per-window pixmaps while skipping the overlay, but this is deferred. Do NOT hide the frame border as a workaround — the frame must always be visible to the user.
 

@@ -33,6 +33,10 @@ Two always-on-top windows:
 
 `AppController` owns both windows and the state machine (`AppState` enum). Workers for recording and encoding run on `QThread`s and communicate back via signals.
 
+## Compositing
+
+`QGraphicsScene` is the compositor. All visual layers — screen frame, camera PIP, annotations — are `QGraphicsItem` subclasses in a shared scene. Qt handles z-order, transforms, opacity, and dirty tracking. Use `QGraphicsScene::render()` for CPU output (GIF). For future video output, prefer `QRhi` (Metal on macOS) to keep compositing on the GPU. Never roll a custom layer/compositor abstraction when `QGraphicsScene` already provides it.
+
 ## Key Types
 
 ```cpp

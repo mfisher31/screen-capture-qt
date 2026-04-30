@@ -634,7 +634,7 @@ Tasks:
 - **Export** (CPU): `ExportRenderer` walks `AnnotationStore`, and for each frame burns visible annotations into a `QImage` copy via `QPainter` before handing to the encoder
 - Support undo/redo with a `QUndoStack`; commands modify `AnnotationStore` and signal `AnnotationLayer` to resync
 
-### Milestone 6: MP4/WebM Export
+### Milestone 6: MP4/WebM Export (Real Video)
 
 Tasks:
 
@@ -644,6 +644,38 @@ Tasks:
 - After `StreamingStrategy::finish()` emits `encodingFinished(path)`, open the file in `PreviewController` via `QMediaPlayer` — same preview path as GIF
 - Add export format selection to settings popover
 - RAM note: GIF stays bounded by `BufferedStrategy`'s 30s soft limit; MP4 via `StreamingStrategy` is unbounded (disk-limited only)
+
+**Compositing for video**: `QGraphicsScene` is the compositor — screen frame, camera PIP, and annotations are all `QGraphicsItem` subclasses in a shared scene. Use `QGraphicsScene::render()` onto a `QImage` for the CPU→ffmpeg pipe path. When switching to a native GPU path (see Milestone 8), `QRhi` (Metal-backed on macOS) renders the same scene without changing the item hierarchy. Do not introduce a custom layer/compositor abstraction — `QGraphicsScene` already provides it.
+
+### Milestone 7: Camera PIP + Camera-Only Mode
+
+Tasks:
+
+- Add a `CameraWorker` that opens `QCamera` + `QVideoSink`, converts each `QVideoFrame` to `QImage`, and emits `frameReady`
+- Add a `QGraphicsPixmapItem` (or `QGraphicsVideoItem`) to the shared `QGraphicsScene` as the PIP layer, positioned in a corner with configurable size
+- `AppController` composites camera frames into the scene each tick before `QGraphicsScene::render()` — the strategy receives one already-composited frame and needs no changes
+- PIP position and size configurable in settings
+
+**Camera-only mode**: when no screen region is needed, the `QGraphicsScene` is sized to the camera frame (or a user-defined output resolution) and the screen capture item is simply absent. The rest of the pipeline — strategy, encoder, preview — is identical. `AppState` gains a `CameraOnly` source flag or a separate `InputMode` enum so `AppController` knows not to start `ScreenCaptureWorker`.
+
+**Crop-to**: camera frames are often 16:9 but the user may want a square or portrait crop (e.g. for Shorts/Reels). A `QGraphicsItem`-level crop rect (via `QGraphicsItem::setClipRect()` or a mask item) handles this without touching the encoder. The crop rect is configurable in settings and applied at composite time — the output frame is already the correct dimensions before it hits `StreamingStrategy`.
+
+### Milestone 8: Audio Capture + A/V Sync
+
+Audio is a continuous sample stream, not a frame — it cannot be treated like a video layer. Sync is the primary risk.
+
+**macOS (preferred path):**
+- `SCStreamConfiguration.capturesAudio = YES` captures system audio in the same SCK stream as video, with matched timestamps — sync is guaranteed by the OS. No separate clock alignment needed.
+- Mic audio via `AVCaptureSession` (separate clock); align to SCK video timestamps using the `CMSampleBuffer.presentationTimeStamp` from both sources. A small jitter buffer (~100ms) absorbs scheduling jitter.
+- Feed both streams to `AVAssetWriter`: one `AVAssetWriterInput` for video, one for audio. `AVAssetWriter` handles muxing and enforces monotonic timestamps.
+
+**Cross-platform fallback:**
+- `QAudioSource` for mic capture; timestamp each buffer at capture time (not arrival time) using `QElapsedTimer` started at record-start.
+- Video frames are timestamped the same way.
+- The ffmpeg subprocess (`StreamingStrategy`) accepts a second audio input pipe; feed both pipes and let ffmpeg mux with `-i pipe:0 -i pipe:1 -c:v libx264 -c:a aac`.
+- Drift between audio and video clocks accumulates over long recordings — acceptable for shorts (< 5 min), not for long-form.
+
+**Key constraint:** Never timestamp at arrival time. Always timestamp at the moment the hardware delivers the buffer. Late delivery due to scheduling is absorbed by the jitter buffer, not by adjusting timestamps.
 
 ## Phase 2 Monetization Options
 

@@ -169,7 +169,7 @@ void ControlBar::onStateChanged(sc::AppState state)
     const int level = (state == AppState::Recording) ? 25 /*NSStatusWindowLevel*/
                                                       : 3  /*NSFloatingWindowLevel*/;
     setNSWindowLevel(reinterpret_cast<void*>(winId()), level);
-#endifhello
+#endif
     updateUiForState(state);
 }
 

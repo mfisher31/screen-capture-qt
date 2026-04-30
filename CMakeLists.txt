@@ -15,6 +15,11 @@ list(PREPEND CMAKE_PREFIX_PATH "$ENV{HOME}/Qt/6.11.0/macos")
 elseif(LINUX)
 list(PREPEND CMAKE_PREFIX_PATH "$ENV{HOME}/Qt/6.11.0/gcc_64")
 elseif(WIN32)
+if(MSVC)
+    list(PREPEND CMAKE_PREFIX_PATH "C:/Qt/6.11.0/msvc2022_64")
+else()
+    list(PREPEND CMAKE_PREFIX_PATH "C:/Qt/6.11.0/mingw_64")
+endif()
 endif()
 
 find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Widgets Multimedia MultimediaWidgets OpenGL OpenGLWidgets Test)
@@ -88,7 +93,24 @@ find_path(GIFLIB_INCLUDE_DIR gif_lib.h HINTS /opt/homebrew/opt/giflib/include)
 if(GIFLIB_LIB AND GIFLIB_INCLUDE_DIR)
     message(STATUS "Found giflib: ${GIFLIB_LIB}")
 else()
-    message(FATAL_ERROR "giflib not found. Install with: brew install giflib")
+    message(STATUS "giflib not found via find_library — fetching via FetchContent")
+    include(FetchContent)
+    FetchContent_Declare(
+        giflib
+        URL      https://sourceforge.net/projects/giflib/files/giflib-5.2.2.tar.gz
+        URL_HASH MD5=913dd251492134e235ee3c9a91987a4d
+    )
+    FetchContent_GetProperties(giflib)
+    if(NOT giflib_POPULATED)
+        FetchContent_Populate(giflib)
+        # giflib has no CMakeLists; build the single lib target manually
+        file(GLOB GIFLIB_SRCS "${giflib_SOURCE_DIR}/*.c")
+        list(FILTER GIFLIB_SRCS EXCLUDE REGEX "(giftext|giftool|gifecho|gifcp|gifclrmp|giffix|gifinfo|gifsplit|gifjoin|gifinto|gifundx)\\.c$")
+        add_library(gif STATIC ${GIFLIB_SRCS})
+        target_include_directories(gif PUBLIC "${giflib_SOURCE_DIR}")
+    endif()
+    set(GIFLIB_LIB gif)
+    set(GIFLIB_INCLUDE_DIR "${giflib_SOURCE_DIR}")
 endif()
 
 target_include_directories(screen-capture-qt PRIVATE ${GIFLIB_INCLUDE_DIR})

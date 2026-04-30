@@ -2,8 +2,11 @@
 #include "capturewindow.hpp"
 
 #include <QApplication>
+#include <QAudioDevice>
+#include <QComboBox>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QMediaDevices>
 #include <QMouseEvent>
 #include <QPushButton>
 #include <QScreen>
@@ -95,9 +98,55 @@ void ControlBar::buildUi()
             return;
         m_format = (m_format == OutputFormat::Gif) ? OutputFormat::Mp4 : OutputFormat::Gif;
         m_formatButton->setText(m_format == OutputFormat::Gif ? "GIF" : "MP4");
+        const bool isVideo = (m_format != OutputFormat::Gif);
+        m_audioButton->setVisible(isVideo);
         emit formatChangeRequested(m_format);
     });
     layout->addWidget(m_formatButton);
+
+    m_audioButton = new QPushButton("🎙", this);
+    m_audioButton->setCheckable(true);
+    m_audioButton->setChecked(false);
+    m_audioButton->setToolTip("Toggle microphone audio recording");
+    m_audioButton->setVisible(false); // hidden when GIF is selected
+    m_audioButton->setStyleSheet(
+        "QPushButton { color: #64748b; border: 1px solid #334155; border-radius: 3px; padding: 2px 6px; background: transparent; }"
+        "QPushButton:checked { color: #e2e8f0; border-color: #60a5fa; }"
+        "QPushButton:hover { border-color: #64748b; }");
+    connect(m_audioButton, &QPushButton::toggled, this, [this](bool on) {
+        m_captureAudio = on;
+        m_audioDeviceCombo->setVisible(on);
+        emit audioChangeRequested(on);
+    });
+    layout->addWidget(m_audioButton);
+
+    m_audioDeviceCombo = new QComboBox(this);
+    m_audioDeviceCombo->setVisible(false);
+    m_audioDeviceCombo->setToolTip("Audio input device");
+    m_audioDeviceCombo->setStyleSheet(
+        "QComboBox { color: #e2e8f0; background: #1e2029; border: 1px solid #334155;"
+        " border-radius: 3px; padding: 1px 6px; font-size: 11px; }"
+        "QComboBox::drop-down { border: none; }"
+        "QComboBox QAbstractItemView { background: #1e2029; color: #e2e8f0;"
+        " selection-background-color: #334155; }");
+    // Populate with available input devices; first entry = system default.
+    const auto devices = QMediaDevices::audioInputs();
+    if (devices.isEmpty()) {
+        m_audioDeviceCombo->addItem("(no input devices)", QString{});
+    } else {
+        const QAudioDevice defaultDev = QMediaDevices::defaultAudioInput();
+        m_audioDeviceCombo->addItem(
+            "Default (" + defaultDev.description() + ")",
+            defaultDev.id());
+        for (const QAudioDevice& dev : devices) {
+            if (dev.id() != defaultDev.id())
+                m_audioDeviceCombo->addItem(dev.description(), dev.id());
+        }
+    }
+    connect(m_audioDeviceCombo, &QComboBox::currentIndexChanged, this, [this](int idx) {
+        emit audioDeviceChangeRequested(m_audioDeviceCombo->itemData(idx).toString());
+    });
+    layout->addWidget(m_audioDeviceCombo);
 
     m_recordButton = new QPushButton("Record", this);
     m_recordButton->setObjectName("recordBtn");
@@ -153,6 +202,24 @@ void ControlBar::buildUi()
     grip->setAttribute(Qt::WA_TransparentForMouseEvents); // bar handles the events
     layout->addWidget(grip);
     layout->setContentsMargins(8, 0, 0, 0); // remove right margin; grip provides it
+}
+
+void ControlBar::setAudioDeviceId(const QString& id)
+{
+    if (!m_audioDeviceCombo)
+        return;
+    if (id.isEmpty()) {
+        m_audioDeviceCombo->setCurrentIndex(0);
+        return;
+    }
+    for (int i = 0; i < m_audioDeviceCombo->count(); ++i) {
+        if (m_audioDeviceCombo->itemData(i).toString() == id) {
+            m_audioDeviceCombo->setCurrentIndex(i);
+            return;
+        }
+    }
+    // ID not found (device removed) — fall back to system default.
+    m_audioDeviceCombo->setCurrentIndex(0);
 }
 
 // ---------------------------------------------------------------------------
@@ -216,6 +283,8 @@ void ControlBar::updateUiForState(AppState state)
         m_pauseButton->setVisible(false);
         m_stopButton->setVisible(false);
         m_formatButton->setEnabled(true);
+        m_audioButton->setEnabled(true);
+        m_audioDeviceCombo->setEnabled(true);
         break;
 
     case AppState::Recording:
@@ -226,6 +295,8 @@ void ControlBar::updateUiForState(AppState state)
         m_pauseButton->setVisible(true);
         m_stopButton->setVisible(true);
         m_formatButton->setEnabled(false);
+        m_audioButton->setEnabled(false);
+        m_audioDeviceCombo->setEnabled(false);
         break;
 
     case AppState::Paused:
@@ -241,6 +312,8 @@ void ControlBar::updateUiForState(AppState state)
         m_pauseButton->setVisible(false);
         m_stopButton->setVisible(false);
         m_formatButton->setEnabled(false);
+        m_audioButton->setEnabled(false);
+        m_audioDeviceCombo->setEnabled(false);
         break;
 
     default:

@@ -58,6 +58,11 @@ void AppController::start()
     connect(m_controlBar, &ControlBar::pauseRequested,          this, &AppController::onPauseRequested);
     connect(m_controlBar, &ControlBar::resumeRequested,         this, &AppController::onResumeRequested);
     connect(m_controlBar, &ControlBar::formatChangeRequested,   this, &AppController::onFormatChangeRequested);
+    connect(m_controlBar, &ControlBar::audioChangeRequested,       this, &AppController::onAudioChangeRequested);
+    connect(m_controlBar, &ControlBar::audioDeviceChangeRequested, this, &AppController::onAudioDeviceChangeRequested);
+
+    // Restore saved settings into the control bar UI.
+    m_controlBar->setAudioDeviceId(m_settings.audioDeviceId);
 
     // Wire controller state → windows
     connect(this, &AppController::stateChanged,  m_captureWindow, &CaptureWindow::onStateChanged);
@@ -226,8 +231,24 @@ void AppController::onEncodingFailed(const QString& reason)
 void AppController::onFormatChangeRequested(OutputFormat format)
 {
     if (m_state != AppState::Idle)
-        return; // ignore changes mid-recording
+        return;
     m_settings.format = format;
+    saveSettings();
+}
+
+void AppController::onAudioChangeRequested(bool captureAudio)
+{
+    if (m_state != AppState::Idle)
+        return;
+    m_settings.captureAudio = captureAudio;
+    saveSettings();
+}
+
+void AppController::onAudioDeviceChangeRequested(const QString& deviceId)
+{
+    if (m_state != AppState::Idle)
+        return;
+    m_settings.audioDeviceId = deviceId;
     saveSettings();
 }
 

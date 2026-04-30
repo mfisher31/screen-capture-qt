@@ -62,6 +62,8 @@ struct RecordingSettings {
     bool showCursor      = true;
     bool showClicks      = true;
     bool countdown       = false;
+    bool captureAudio    = false;  // mic audio muxed into MP4; no effect on GIF
+    QString audioDeviceId;          // empty = system default
     QString outputDir;
 
     // Populate from QSettings. Any key not present keeps its default value.
@@ -73,9 +75,11 @@ struct RecordingSettings {
                            qs.value("format", static_cast<int>(s.format)).toInt());
         s.quality    = static_cast<QualityPreset>(
                            qs.value("quality", static_cast<int>(s.quality)).toInt());
-        s.showCursor = qs.value("showCursor", s.showCursor).toBool();
-        s.showClicks = qs.value("showClicks", s.showClicks).toBool();
-        s.countdown  = qs.value("countdown",  s.countdown).toBool();
+        s.showCursor  = qs.value("showCursor",  s.showCursor).toBool();
+        s.showClicks  = qs.value("showClicks",  s.showClicks).toBool();
+        s.countdown   = qs.value("countdown",   s.countdown).toBool();
+        s.captureAudio  = qs.value("captureAudio", s.captureAudio).toBool();
+        s.audioDeviceId = qs.value("audioDeviceId", s.audioDeviceId).toString();
         s.outputDir  = qs.value("outputDir",
             QStandardPaths::writableLocation(QStandardPaths::MoviesLocation)).toString();
         return s;
@@ -86,10 +90,12 @@ struct RecordingSettings {
         qs.setValue("fps",        fps);
         qs.setValue("format",     static_cast<int>(format));
         qs.setValue("quality",    static_cast<int>(quality));
-        qs.setValue("showCursor", showCursor);
-        qs.setValue("showClicks", showClicks);
-        qs.setValue("countdown",  countdown);
-        qs.setValue("outputDir",  outputDir);
+        qs.setValue("showCursor",  showCursor);
+        qs.setValue("showClicks",  showClicks);
+        qs.setValue("countdown",   countdown);
+        qs.setValue("captureAudio",  captureAudio);
+        qs.setValue("audioDeviceId", audioDeviceId);
+        qs.setValue("outputDir",     outputDir);
     }
 };
 
@@ -128,6 +134,8 @@ public slots:
     void onEncodingFinished(const QString& filePath);
     void onEncodingFailed(const QString& reason);
     void onFormatChangeRequested(sc::OutputFormat format);
+    void onAudioChangeRequested(bool captureAudio);
+    void onAudioDeviceChangeRequested(const QString& deviceId);
 
 signals:
     void stateChanged(sc::AppState newState);

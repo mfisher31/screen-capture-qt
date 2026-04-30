@@ -2,6 +2,7 @@
 
 #include <QDateTime>
 #include <QDebug>
+#include <QMediaDevices>
 #include <QMediaFormat>
 #include <QUrl>
 #include <QVideoFrame>
@@ -13,6 +14,31 @@ VideoEncoder::VideoEncoder(const RecordingSettings& settings, QObject* parent)
     , m_settings(settings)
 {
     m_session.setVideoFrameInput(&m_input);
+
+    // Audio: add the default microphone to the session when requested.
+    // QMediaRecorder will mux it automatically alongside the video frames.
+    // The default QAudioInput() selects the system default input device.
+    // Sync note: audio uses the system audio clock; video is stamped via
+    // QElapsedTimer. Both start at roughly record-start, which is close
+    // enough for short clips. Plan Milestone 8 will add proper PTS alignment.
+    if (m_settings.captureAudio) {
+        // Resolve device by ID if one was selected; fall back to system default.
+        if (!m_settings.audioDeviceId.isEmpty()) {
+            const auto devices = QMediaDevices::audioInputs();
+            for (const QAudioDevice& dev : devices) {
+                if (dev.id() == m_settings.audioDeviceId.toUtf8()) {
+                    m_audioInput.setDevice(dev);
+                    qDebug("[VideoEncoder] audio device: %s",
+                           qPrintable(dev.description()));
+                    break;
+                }
+            }
+        } else {
+            qDebug("[VideoEncoder] audio device: system default");
+        }
+        m_session.setAudioInput(&m_audioInput);
+    }
+
     m_session.setRecorder(&m_recorder);
 
     connect(&m_recorder, &QMediaRecorder::recorderStateChanged,

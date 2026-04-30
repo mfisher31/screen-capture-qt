@@ -8,6 +8,7 @@
 
 class QLabel;
 class QPushButton;
+class QComboBox;
 class QHBoxLayout;
 
 namespace sc {
@@ -25,6 +26,11 @@ public:
 
     void snapToRegion(const QRect& captureRect);
 
+    // Restore the audio device combo selection from a saved ID.
+    // Pass an empty string (or an ID that no longer exists) to select the
+    // system default (index 0).  Does not emit audioDeviceChangeRequested.
+    void setAudioDeviceId(const QString& id);
+
     // When true the app's own windows are NOT excluded from the SCK capture,
     // so the capture frame / control bar appear in the recorded output.
     bool demoMode() const;
@@ -35,6 +41,8 @@ signals:
     void pauseRequested();
     void resumeRequested();
     void formatChangeRequested(sc::OutputFormat format);
+    void audioChangeRequested(bool captureAudio);
+    void audioDeviceChangeRequested(QString deviceId);
 
 public slots:
     void onStateChanged(sc::AppState state);
@@ -69,13 +77,16 @@ private:
     QLabel*      m_statusLabel     = nullptr;
     QLabel*      m_dimensionsLabel = nullptr;
     QPushButton* m_formatButton    = nullptr;
+    QPushButton* m_audioButton     = nullptr;
+    QComboBox*   m_audioDeviceCombo = nullptr;
     QPushButton* m_recordButton    = nullptr;
     QPushButton* m_pauseButton     = nullptr;
     QPushButton* m_stopButton      = nullptr;
     QPushButton* m_demoButton      = nullptr;
     QPushButton* m_closeButton     = nullptr;
 
-    OutputFormat m_format = OutputFormat::Gif;
+    OutputFormat m_format      = OutputFormat::Gif;
+    bool         m_captureAudio = false;
     AppState m_state = AppState::Idle;
 };
 

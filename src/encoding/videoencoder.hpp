@@ -2,6 +2,8 @@
 
 #include "../appcontroller.hpp"
 
+#include <QAudioDevice>
+#include <QAudioInput>
 #include <QElapsedTimer>
 #include <QMediaCaptureSession>
 #include <QMediaRecorder>
@@ -12,6 +14,13 @@
 namespace sc {
 
 // Encodes a stream of QImage frames to MP4 or WebM using Qt Multimedia.
+// When RecordingSettings::captureAudio is true, microphone audio is recorded
+// via QAudioInput and muxed automatically by QMediaRecorder.
+//
+// Audio sync note: video frames are stamped by QElapsedTimer; audio uses the
+// system audio clock — both clocks start at roughly record-start, so sync is
+// good for short clips. Proper PTS-aligned sync (plan Milestone 8) can be
+// layered in later without changing this interface.
 //
 // Threading: lives on and must be used from the main thread. QMediaRecorder
 // manages its own internal threads.
@@ -45,6 +54,7 @@ private:
     RecordingSettings    m_settings;
     QMediaCaptureSession m_session;
     QVideoFrameInput     m_input;
+    QAudioInput          m_audioInput;   // null device = no audio
     QMediaRecorder       m_recorder;
     QElapsedTimer        m_elapsed;
     QString              m_outputPath;

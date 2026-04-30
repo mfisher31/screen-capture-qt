@@ -136,6 +136,7 @@ public slots:
     void onFormatChangeRequested(sc::OutputFormat format);
     void onAudioChangeRequested(bool captureAudio);
     void onAudioDeviceChangeRequested(const QString& deviceId);
+    void onOutputDirChangeRequested(const QString& dir);
 
 signals:
     void stateChanged(sc::AppState newState);

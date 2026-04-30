@@ -60,9 +60,11 @@ void AppController::start()
     connect(m_controlBar, &ControlBar::formatChangeRequested,   this, &AppController::onFormatChangeRequested);
     connect(m_controlBar, &ControlBar::audioChangeRequested,       this, &AppController::onAudioChangeRequested);
     connect(m_controlBar, &ControlBar::audioDeviceChangeRequested, this, &AppController::onAudioDeviceChangeRequested);
+    connect(m_controlBar, &ControlBar::outputDirChangeRequested,   this, &AppController::onOutputDirChangeRequested);
 
     // Restore saved settings into the control bar UI.
     m_controlBar->setAudioDeviceId(m_settings.audioDeviceId);
+    m_controlBar->setOutputDir(m_settings.outputDir);
 
     // Wire controller state → windows
     connect(this, &AppController::stateChanged,  m_captureWindow, &CaptureWindow::onStateChanged);
@@ -249,6 +251,14 @@ void AppController::onAudioDeviceChangeRequested(const QString& deviceId)
     if (m_state != AppState::Idle)
         return;
     m_settings.audioDeviceId = deviceId;
+    saveSettings();
+}
+
+void AppController::onOutputDirChangeRequested(const QString& dir)
+{
+    if (m_state != AppState::Idle)
+        return;
+    m_settings.outputDir = dir;
     saveSettings();
 }
 

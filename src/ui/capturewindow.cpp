@@ -214,6 +214,9 @@ void CaptureWindow::mousePressEvent(QMouseEvent* event)
     m_dragging    = (m_dragZone != HitZone::None);
     m_dragStart   = event->globalPosition().toPoint();
     m_rectAtPress = geometry();
+    m_pressAspect = (m_rectAtPress.height() > 0)
+        ? double(m_rectAtPress.width()) / double(m_rectAtPress.height())
+        : 1.0;
 }
 
 void CaptureWindow::mouseMoveEvent(QMouseEvent* event)
@@ -273,9 +276,19 @@ void CaptureWindow::mouseMoveEvent(QMouseEvent* event)
     default: break;
     }
 
+    // Determine the effective aspect ratio to enforce:
+    // - Recording: use the ratio locked at record-start (zoom effect).
+    // - Idle/Positioning: lock by default; Shift overrides to free-form.
+    double effectiveAspect = m_lockedAspect;
+    if (effectiveAspect == 0.0 && m_dragZone != HitZone::Body) {
+        const bool shiftHeld = (event->modifiers() & Qt::ShiftModifier);
+        if (!shiftHeld)
+            effectiveAspect = m_pressAspect;
+    }
+
     // Constrain to locked aspect ratio while recording (zoom effect).
     // Body drags (move) are exempt — only resize operations are constrained.
-    if (m_lockedAspect > 0.0 && m_dragZone != HitZone::Body) {
+    if (effectiveAspect > 0.0 && m_dragZone != HitZone::Body) {
         // Anchor point depends on which edge/corner is being dragged.
         // We keep the opposite corner fixed and adjust whichever free
         // dimension is smaller relative to the aspect ratio.
@@ -288,8 +301,8 @@ void CaptureWindow::mouseMoveEvent(QMouseEvent* event)
 
         // Derive the constrained height from the current width, then fix.
         int newW = r.width();
-        int newH = qMax(kMinDimension, int(newW / m_lockedAspect));
-        newW     = qMax(kMinDimension, int(newH * m_lockedAspect));
+        int newH = qMax(kMinDimension, int(newW / effectiveAspect));
+        newW     = qMax(kMinDimension, int(newH * effectiveAspect));
 
         if (anchorRight)
             r.setLeft(r.right() - newW);

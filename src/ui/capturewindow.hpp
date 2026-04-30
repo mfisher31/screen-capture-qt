@@ -87,6 +87,8 @@ private:
     // When recording, resize is constrained to the aspect ratio captured at
     // record-start, creating a zoom effect. 0.0 = unlocked (not recording).
     double  m_lockedAspect = 0.0;
+    // Aspect ratio (width/height) captured at mouse-press for idle constraint.
+    double  m_pressAspect  = 0.0;
 };
 
 } // namespace sc

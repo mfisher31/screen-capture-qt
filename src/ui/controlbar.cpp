@@ -4,6 +4,12 @@
 #include <QApplication>
 #include <QAudioDevice>
 #include <QComboBox>
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QFileDialog>
+#include <QFormLayout>
+#include <QLineEdit>
+#include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QMediaDevices>
@@ -187,7 +193,58 @@ void ControlBar::buildUi()
     layout->addWidget(m_demoButton);
 #endif
 
-    m_closeButton = new QPushButton("✕", this);
+    m_settingsButton = new QPushButton("⚙", this);
+    m_settingsButton->setFixedWidth(28);
+    m_settingsButton->setToolTip("Preferences");
+    m_settingsButton->setStyleSheet(
+        "QPushButton { color: #94a3b8; border: none; background: transparent; font-size: 14px; }"
+        "QPushButton:hover { color: #e2e8f0; }"
+        "QPushButton:disabled { color: #475569; }");
+    connect(m_settingsButton, &QPushButton::clicked, this, [this]() {
+        auto* dlg = new QDialog(this);
+        dlg->setWindowTitle("Preferences");
+        dlg->setAttribute(Qt::WA_DeleteOnClose);
+        dlg->setWindowFlags(dlg->windowFlags() | Qt::WindowStaysOnTopHint);
+
+        auto* vlay = new QVBoxLayout(dlg);
+        vlay->setSpacing(12);
+
+        auto* form = new QFormLayout;
+        auto* dirEdit = new QLineEdit(m_outputDir, dlg);
+        dirEdit->setMinimumWidth(300);
+        dirEdit->setReadOnly(true);
+        auto* browseBtn = new QPushButton("Browse\u2026", dlg);
+        auto* dirRow = new QHBoxLayout;
+        dirRow->addWidget(dirEdit);
+        dirRow->addWidget(browseBtn);
+        form->addRow("Output folder:", dirRow);
+        vlay->addLayout(form);
+
+        connect(browseBtn, &QPushButton::clicked, dlg, [dirEdit, dlg]() {
+            const QString dir = QFileDialog::getExistingDirectory(
+                dlg, "Choose Output Folder", dirEdit->text());
+            if (!dir.isEmpty())
+                dirEdit->setText(dir);
+        });
+
+        auto* buttons = new QDialogButtonBox(
+            QDialogButtonBox::Ok | QDialogButtonBox::Cancel, dlg);
+        connect(buttons, &QDialogButtonBox::accepted, dlg, [this, dlg, dirEdit]() {
+            const QString dir = dirEdit->text();
+            if (dir != m_outputDir) {
+                m_outputDir = dir;
+                emit outputDirChangeRequested(m_outputDir);
+            }
+            dlg->accept();
+        });
+        connect(buttons, &QDialogButtonBox::rejected, dlg, &QDialog::reject);
+        vlay->addWidget(buttons);
+
+        dlg->exec();
+    });
+    layout->addWidget(m_settingsButton);
+
+    m_closeButton = new QPushButton("\u2715", this);
     m_closeButton->setFixedWidth(28);
     connect(m_closeButton, &QPushButton::clicked, qApp, &QApplication::quit);
     layout->addWidget(m_closeButton);
@@ -202,6 +259,11 @@ void ControlBar::buildUi()
     grip->setAttribute(Qt::WA_TransparentForMouseEvents); // bar handles the events
     layout->addWidget(grip);
     layout->setContentsMargins(8, 0, 0, 0); // remove right margin; grip provides it
+}
+
+void ControlBar::setOutputDir(const QString& dir)
+{
+    m_outputDir = dir;
 }
 
 void ControlBar::setAudioDeviceId(const QString& id)

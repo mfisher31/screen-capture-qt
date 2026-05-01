@@ -4,8 +4,11 @@
 #include "recordingstrategy.hpp"
 #include "bufferedstrategy.hpp"
 #include "streamingstrategy.hpp"
+#include "mousepanner.hpp"
 #include "ui/capturewindow.hpp"
 #include "ui/controlbar.hpp"
+
+#include <QCursor>
 
 #ifdef Q_OS_MAC
 #  include "platform/macos_window.h"
@@ -72,6 +75,7 @@ void AppController::start()
     connect(m_controlBar, &ControlBar::audioDeviceChangeRequested, this, &AppController::onAudioDeviceChangeRequested);
     connect(m_controlBar, &ControlBar::outputDirChangeRequested,   this, &AppController::onOutputDirChangeRequested);
     connect(m_controlBar, &ControlBar::outputSizeChangeRequested,  this, &AppController::onOutputSizeChangeRequested);
+    connect(m_controlBar, &ControlBar::followMouseChangeRequested, this, &AppController::onFollowMouseChangeRequested);
     connect(m_controlBar, &ControlBar::snapAspectRequested,        this, &AppController::onSnapAspectRequested);
 
     // Restore saved settings into the control bar UI.
@@ -95,9 +99,15 @@ void AppController::start()
 
 #ifdef Q_OS_MAC
     m_hotkeyManager = new GlobalInputManager(this);
-    connect(m_hotkeyManager, &GlobalInputManager::growRequested,   this, &AppController::onGrowRequested);
-    connect(m_hotkeyManager, &GlobalInputManager::shrinkRequested, this, &AppController::onShrinkRequested);
+    connect(m_hotkeyManager, &GlobalInputManager::growRequested,              this, &AppController::onGrowRequested);
+    connect(m_hotkeyManager, &GlobalInputManager::shrinkRequested,            this, &AppController::onShrinkRequested);
+    connect(m_hotkeyManager, &GlobalInputManager::followMouseToggleRequested, this, &AppController::onFollowMouseToggleRequested);
 #endif
+
+    // Follow-mouse pan timer — runs at 60 Hz during recording when enabled.
+    m_followTimer = new QTimer(this);
+    m_followTimer->setInterval(16);
+    connect(m_followTimer, &QTimer::timeout, this, &AppController::onFollowMouseTick);
 
     m_captureWindow->show();
     m_controlBar->show();
@@ -359,6 +369,60 @@ void AppController::applyResizeDelta(int delta)
 // Helpers
 // ---------------------------------------------------------------------------
 
+void AppController::updateFollowTimer()
+{
+    if (!m_followTimer)
+        return;
+    const bool active = m_followMouse &&
+                        (m_state == AppState::Recording || m_state == AppState::Paused);
+    if (active)
+        m_followTimer->start();
+    else
+        m_followTimer->stop();
+}
+
+void AppController::onFollowMouseChangeRequested(bool enabled)
+{
+    m_followMouse = enabled;
+    qDebug("[follow-mouse] enabled=%d state=%d", enabled, int(m_state));
+    updateFollowTimer();
+    qDebug("[follow-mouse] timer active=%d", m_followTimer->isActive());
+}
+
+void AppController::onFollowMouseToggleRequested()
+{
+    onFollowMouseChangeRequested(!m_followMouse);
+    if (m_controlBar)
+        m_controlBar->setFollowMouse(m_followMouse);
+}
+
+void AppController::onFollowMouseTick()
+{
+    const QPoint cursor = QCursor::pos();
+    const QRect  rect   = m_region.rect;
+
+    const QRect screenRect = m_region.screen
+        ? m_region.screen->geometry()
+        : QGuiApplication::primaryScreen()->geometry();
+
+    if (!screenRect.contains(cursor))
+        return;
+
+    const QRect newRect = MousePanner{}.pan(cursor, rect, screenRect);
+    qDebug("[follow-mouse] cursor=(%d,%d) rect=(%d,%d %dx%d) newRect=(%d,%d %dx%d)",
+           cursor.x(), cursor.y(),
+           rect.x(), rect.y(), rect.width(), rect.height(),
+           newRect.x(), newRect.y(), newRect.width(), newRect.height());
+
+    if (newRect == rect)
+        return;
+
+    m_region.rect = newRect;
+    emit regionChanged(m_region);
+    if (m_worker)
+        m_worker->setCaptureRegion(m_region);
+}
+
 void AppController::attachWorker(RecorderWorker* worker)
 {
     teardownWorker();
@@ -408,6 +472,7 @@ void AppController::setState(AppState s)
         return;
     m_state = s;
     emit stateChanged(m_state);
+    updateFollowTimer();
 }
 
 void AppController::loadSettings()

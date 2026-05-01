@@ -35,6 +35,7 @@ public:
     void setOutputSize(QSize size);
     void setFormat(sc::OutputFormat format);
     void setHiDpi(bool hiDpi);
+    void setFollowMouse(bool enabled);
 
     // When true the app's own windows are NOT excluded from the SCK capture,
     // so the capture frame / control bar appear in the recorded output.
@@ -49,6 +50,7 @@ signals:
     void audioChangeRequested(bool captureAudio);
     void audioDeviceChangeRequested(QString deviceId);
     void hiDpiChangeRequested(bool hiDpi);
+    void followMouseChangeRequested(bool enabled);
     void outputDirChangeRequested(QString dir);
     void outputSizeChangeRequested(QSize size);
     void snapAspectRequested();
@@ -94,12 +96,14 @@ private:
     QPushButton* m_snapButton      = nullptr;
     QPushButton* m_settingsButton  = nullptr;
     QPushButton* m_hiDpiButton     = nullptr;
+    QPushButton* m_followMouseButton = nullptr;
     QPushButton* m_demoButton      = nullptr;
     QPushButton* m_closeButton     = nullptr;
 
     OutputFormat m_format      = OutputFormat::Gif;
     bool         m_captureAudio = false;
     bool         m_hiDpi        = false;
+    bool         m_followMouse  = false;
     AppState m_state = AppState::Idle;
     QString      m_outputDir;
     QSize        m_outputSize = {800, 450};

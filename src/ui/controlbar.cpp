@@ -207,6 +207,20 @@ void ControlBar::buildUi()
     });
     layout->addWidget(m_hiDpiButton);
 
+    m_followMouseButton = new QPushButton("⊕", this);
+    m_followMouseButton->setCheckable(true);
+    m_followMouseButton->setChecked(false);
+    m_followMouseButton->setToolTip("Follow mouse: pan capture region when cursor nears an edge");
+    m_followMouseButton->setStyleSheet(
+        "QPushButton { color: #94a3b8; border: 1px solid #334155; border-radius: 3px; padding: 2px 6px; background: transparent; font-size: 11px; }"
+        "QPushButton:checked { color: #e2e8f0; border-color: #60a5fa; }"
+        "QPushButton:hover { border-color: #64748b; }");
+    connect(m_followMouseButton, &QPushButton::toggled, this, [this](bool on) {
+        m_followMouse = on;
+        emit followMouseChangeRequested(on);
+    });
+    layout->addWidget(m_followMouseButton);
+
     m_snapButton = new QPushButton("16:9", this);
     m_snapButton->setToolTip("Snap capture region to 16:9 (or 9:16)");
     m_snapButton->setStyleSheet(
@@ -316,6 +330,13 @@ void ControlBar::setHiDpi(bool hiDpi)
     m_hiDpi = hiDpi;
     if (m_hiDpiButton)
         m_hiDpiButton->setChecked(hiDpi);
+}
+
+void ControlBar::setFollowMouse(bool enabled)
+{
+    m_followMouse = enabled;
+    if (m_followMouseButton)
+        m_followMouseButton->setChecked(enabled);
 }
 
 void ControlBar::setOutputDir(const QString& dir)

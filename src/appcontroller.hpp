@@ -7,6 +7,7 @@
 #include <QSize>
 #include <QStandardPaths>
 #include <QString>
+#include <QTimer>
 
 #ifdef Q_OS_MACOS
 #  include "globalinputmanager.hpp"
@@ -152,6 +153,9 @@ public slots:
     void onAudioDeviceChangeRequested(const QString& deviceId);
     void onOutputDirChangeRequested(const QString& dir);
     void onOutputSizeChangeRequested(QSize size);
+    void onFollowMouseChangeRequested(bool enabled);
+    void onFollowMouseToggleRequested();
+    void onFollowMouseTick();
     void onSnapAspectRequested();
     void onGrowRequested();
     void onShrinkRequested();
@@ -171,6 +175,7 @@ private:
     void attachWorker(RecorderWorker* worker);
     void teardownWorker();
     void applyResizeDelta(int delta);
+    void updateFollowTimer();  // start/stop m_followTimer based on state + flag
 
     AppState m_state = AppState::Idle;
     CaptureRegion m_region;
@@ -178,12 +183,14 @@ private:
 
     double m_resizeAspect   = 0.0;   // latched on first hotkey resize; 0 = unset
     bool   m_applyingResize = false; // true while applyResizeDelta is calling onRegionChanged
+    bool   m_followMouse    = false; // follow-mouse pan mode
 
     CaptureWindow*     m_captureWindow  = nullptr;
     ControlBar*        m_controlBar     = nullptr;
     RecorderWorker*    m_worker         = nullptr;
     QThread*           m_workerThread   = nullptr;
     RecordingStrategy* m_strategy       = nullptr;  // owned; created per recording
+    QTimer*            m_followTimer    = nullptr;
 
 #ifdef Q_OS_MACOS
     GlobalInputManager* m_hotkeyManager = nullptr;

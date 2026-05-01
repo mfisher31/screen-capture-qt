@@ -197,3 +197,17 @@ target_link_libraries(recording_settings_test PRIVATE
 )
 
 add_test(NAME RecordingSettingsTest COMMAND recording_settings_test)
+
+qt_add_executable(mouse_panner_test
+    tests/mouse_panner_test.cpp
+)
+
+target_include_directories(mouse_panner_test PRIVATE src)
+
+target_link_libraries(mouse_panner_test PRIVATE
+    Qt6::Core
+    Qt6::Gui
+    Qt6::Test
+)
+
+add_test(NAME MousePannerTest COMMAND mouse_panner_test)

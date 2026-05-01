@@ -71,11 +71,13 @@ void AppController::start()
     connect(m_controlBar, &ControlBar::hiDpiChangeRequested,       this, &AppController::onHiDpiChangeRequested);
     connect(m_controlBar, &ControlBar::audioDeviceChangeRequested, this, &AppController::onAudioDeviceChangeRequested);
     connect(m_controlBar, &ControlBar::outputDirChangeRequested,   this, &AppController::onOutputDirChangeRequested);
+    connect(m_controlBar, &ControlBar::outputSizeChangeRequested,  this, &AppController::onOutputSizeChangeRequested);
     connect(m_controlBar, &ControlBar::snapAspectRequested,        this, &AppController::onSnapAspectRequested);
 
     // Restore saved settings into the control bar UI.
     m_controlBar->setAudioDeviceId(m_settings.audioDeviceId);
     m_controlBar->setOutputDir(m_settings.outputDir);
+    m_controlBar->setOutputSize(m_settings.outputSize);
     m_controlBar->setFormat(m_settings.format);
     m_controlBar->setHiDpi(m_settings.hiDpi);
 
@@ -303,6 +305,14 @@ void AppController::onOutputDirChangeRequested(const QString& dir)
     if (m_state != AppState::Idle)
         return;
     m_settings.outputDir = dir;
+    saveSettings();
+}
+
+void AppController::onOutputSizeChangeRequested(QSize size)
+{
+    if (m_state != AppState::Idle)
+        return;
+    m_settings.outputSize = size;
     saveSettings();
 }
 

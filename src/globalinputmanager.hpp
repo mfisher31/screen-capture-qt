@@ -4,7 +4,6 @@
 
 namespace sc {
 
-
 // Listens for global +/- keypresses via CGEventTap (macOS only).
 // Requires Accessibility permission (System Settings > Privacy > Accessibility).
 // If permission is not granted the tap is silently skipped and signals are

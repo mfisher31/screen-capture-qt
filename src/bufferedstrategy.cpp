@@ -49,10 +49,14 @@ void BufferedStrategy::finish()
         QStringLiteral("capture-%1.gif").arg(timestamp);
 
     GifExportSettings gifSettings;
-    gifSettings.outputFps = qMin(10, m_settings.fps);
-    gifSettings.maxWidth  = 0;  // unused — fixed size takes precedence
-    gifSettings.hiDpi     = m_settings.hiDpi;
-    gifSettings.quality   = m_settings.quality;
+    gifSettings.outputFps  = qMin(10, m_settings.fps);
+    gifSettings.outputSize = m_settings.outputSize;
+    if (m_settings.hiDpi) {
+        const QScreen* screen = m_frameStore->frameAt(0).region.screen;
+        const qreal dpr = screen ? screen->devicePixelRatio() : 2.0;
+        gifSettings.outputSize *= dpr;
+    }
+    gifSettings.quality    = m_settings.quality;
 
     // Tear down any leftover encoder thread (shouldn't happen, defensive).
     if (m_encoderThread) {

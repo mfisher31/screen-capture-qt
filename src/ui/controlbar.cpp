@@ -234,6 +234,8 @@ void ControlBar::buildUi()
         vlay->setSpacing(12);
 
         auto* form = new QFormLayout;
+
+        // Output folder
         auto* dirEdit = new QLineEdit(m_outputDir, dlg);
         dirEdit->setMinimumWidth(300);
         dirEdit->setReadOnly(true);
@@ -242,6 +244,25 @@ void ControlBar::buildUi()
         dirRow->addWidget(dirEdit);
         dirRow->addWidget(browseBtn);
         form->addRow("Output folder:", dirRow);
+
+        // Output size
+        struct SizeOption { QString label; QSize size; };
+        const QList<SizeOption> sizeOptions = {
+            { "640\u00d7360",   {640,  360} },
+            { "800\u00d7450",   {800,  450} },
+            { "1280\u00d7720",  {1280, 720} },
+            { "1920\u00d71080", {1920, 1080} },
+        };
+        auto* sizeCombo = new QComboBox(dlg);
+        int currentSizeIndex = 1; // default to 800×450
+        for (int i = 0; i < sizeOptions.size(); ++i) {
+            sizeCombo->addItem(sizeOptions[i].label);
+            if (sizeOptions[i].size == m_outputSize)
+                currentSizeIndex = i;
+        }
+        sizeCombo->setCurrentIndex(currentSizeIndex);
+        form->addRow("Output size:", sizeCombo);
+
         vlay->addLayout(form);
 
         connect(browseBtn, &QPushButton::clicked, dlg, [dirEdit, dlg]() {
@@ -253,11 +274,16 @@ void ControlBar::buildUi()
 
         auto* buttons = new QDialogButtonBox(
             QDialogButtonBox::Ok | QDialogButtonBox::Cancel, dlg);
-        connect(buttons, &QDialogButtonBox::accepted, dlg, [this, dlg, dirEdit]() {
+        connect(buttons, &QDialogButtonBox::accepted, dlg, [this, dlg, dirEdit, sizeCombo, sizeOptions]() {
             const QString dir = dirEdit->text();
             if (dir != m_outputDir) {
                 m_outputDir = dir;
                 emit outputDirChangeRequested(m_outputDir);
+            }
+            const QSize size = sizeOptions[sizeCombo->currentIndex()].size;
+            if (size != m_outputSize) {
+                m_outputSize = size;
+                emit outputSizeChangeRequested(m_outputSize);
             }
             dlg->accept();
         });
@@ -295,6 +321,11 @@ void ControlBar::setHiDpi(bool hiDpi)
 void ControlBar::setOutputDir(const QString& dir)
 {
     m_outputDir = dir;
+}
+
+void ControlBar::setOutputSize(QSize size)
+{
+    m_outputSize = size;
 }
 
 void ControlBar::setFormat(sc::OutputFormat format)

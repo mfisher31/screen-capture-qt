@@ -49,10 +49,11 @@ void StreamingStrategy::onFrame(const QImage& rawImage, const CaptureRegion& reg
 {
     QImage image = cropToRegion(rawImage, region);
 
-    // Fixed output size: 800×450 (16:9), or 1600×900 in HiDPI mode.
-    // The capture window can be any size/position; its content is scaled
-    // into this fixed canvas on every frame.
-    const QSize kOutputSize = m_settings.hiDpi ? QSize{1600, 900} : QSize{800, 450};
+    // Scale to output size. If HiDPI is enabled, multiply base size by the
+    // screen's actual device pixel ratio rather than assuming 2×.
+    QSize kOutputSize = m_settings.outputSize;
+    if (m_settings.hiDpi && region.screen)
+        kOutputSize *= region.screen->devicePixelRatio();
     if (!image.isNull() && image.size() != kOutputSize)
         image = image.scaled(kOutputSize, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
 

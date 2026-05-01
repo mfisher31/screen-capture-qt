@@ -79,12 +79,11 @@ void GifEncoder::encode()
         return;
     }
 
-    // Fixed output size: 800×450 (16:9), or 1600×900 in HiDPI mode.
-    // The per-frame loop crops to the capture region and scales to this size.
-    const int outW = m_gifSettings.hiDpi ? 1600 : 800;
-    const int outH = m_gifSettings.hiDpi ?  900 : 450;
+    // Final output dimensions come from settings.
+    const int outW = m_gifSettings.outputSize.width();
+    const int outH = m_gifSettings.outputSize.height();
 
-    qDebug("[GIF] fixed output: %dx%d%s", outW, outH, m_gifSettings.hiDpi ? " (HiDPI)" : "");
+    qDebug("[GIF] fixed output: %dx%d", outW, outH);
 
     GifFileType* gif = EGifOpenFileName(pathBytes.constData(), false, &gifError);
     if (!gif) {

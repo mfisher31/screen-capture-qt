@@ -4,6 +4,7 @@
 
 #include <QWidget>
 #include <QRect>
+#include <QSize>
 #include <QTimer>
 
 class QLabel;
@@ -31,6 +32,7 @@ public:
     // system default (index 0).  Does not emit audioDeviceChangeRequested.
     void setAudioDeviceId(const QString& id);
     void setOutputDir(const QString& dir);
+    void setOutputSize(QSize size);
     void setFormat(sc::OutputFormat format);
     void setHiDpi(bool hiDpi);
 
@@ -48,6 +50,7 @@ signals:
     void audioDeviceChangeRequested(QString deviceId);
     void hiDpiChangeRequested(bool hiDpi);
     void outputDirChangeRequested(QString dir);
+    void outputSizeChangeRequested(QSize size);
     void snapAspectRequested();
 
 public slots:
@@ -99,6 +102,7 @@ private:
     bool         m_hiDpi        = false;
     AppState m_state = AppState::Idle;
     QString      m_outputDir;
+    QSize        m_outputSize = {800, 450};
 };
 
 } // namespace sc

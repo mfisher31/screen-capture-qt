@@ -10,7 +10,7 @@
 #include <QTimer>
 
 #ifdef Q_OS_MACOS
-#  include "globalinputmanager.hpp"
+#  include "globakhotkeys.hpp"
 #endif
 
 // Forward-declare Qt class outside namespace sc to avoid sc::QThread ambiguity
@@ -199,7 +199,7 @@ private:
     QTimer*            m_followTimer    = nullptr;
 
 #ifdef Q_OS_MACOS
-    GlobalInputManager* m_hotkeyManager = nullptr;
+    GlobakHotkeys* m_hotkeyManager = nullptr;
 #endif
 };
 

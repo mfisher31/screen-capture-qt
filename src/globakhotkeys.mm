@@ -1,4 +1,4 @@
-#include "globalinputmanager.hpp"
+#include "globakhotkeys.hpp"
 
 #import <ApplicationServices/ApplicationServices.h>
 #import <CoreGraphics/CoreGraphics.h>
@@ -28,7 +28,7 @@ static CGEventRef eventTapCallback(CGEventTapProxy /*proxy*/,
 
         auto keyCode = static_cast<CGKeyCode>(
             CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode));
-        auto* mgr = static_cast<GlobalInputManager*>(userInfo);
+        auto* mgr = static_cast<GlobakHotkeys*>(userInfo);
 
         // Cmd+Shift+= / Cmd+Shift+- — grow/shrink
         if (cmd && shift && !alt && !ctrl) {
@@ -48,11 +48,11 @@ static CGEventRef eventTapCallback(CGEventTapProxy /*proxy*/,
     return event; // pass all events through — listen-only
 }
 
-GlobalInputManager::GlobalInputManager(QObject* parent)
+GlobakHotkeys::GlobakHotkeys(QObject* parent)
     : QObject(parent)
 {
     if (!AXIsProcessTrusted()) {
-        qWarning("GlobalInputManager: Accessibility not granted — global hotkeys disabled.");
+        qWarning("GlobakHotkeys: Accessibility not granted — global hotkeys disabled.");
         return;
     }
 
@@ -65,7 +65,7 @@ GlobalInputManager::GlobalInputManager(QObject* parent)
         this
     );
     if (!tap) {
-        qWarning("GlobalInputManager: CGEventTapCreate failed.");
+        qWarning("GlobakHotkeys: CGEventTapCreate failed.");
         return;
     }
 
@@ -77,7 +77,7 @@ GlobalInputManager::GlobalInputManager(QObject* parent)
     m_tap = tap; // keep alive — released in destructor
 }
 
-GlobalInputManager::~GlobalInputManager()
+GlobakHotkeys::~GlobakHotkeys()
 {
     if (m_tap) {
         auto tap = static_cast<CFMachPortRef>(m_tap);

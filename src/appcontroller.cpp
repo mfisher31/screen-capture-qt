@@ -12,7 +12,7 @@
 
 #ifdef Q_OS_MAC
 #  include "platform/macos_window.h"
-#  include "globalinputmanager.hpp"
+#  include "globakhotkeys.hpp"
 #endif
 
 #include <QGuiApplication>
@@ -95,11 +95,11 @@ void AppController::start()
     m_captureWindow->setGeometry(m_region.rect);
 
 #ifdef Q_OS_MAC
-    m_hotkeyManager = new GlobalInputManager(this);
-    connect(m_hotkeyManager, &GlobalInputManager::growRequested,              this, &AppController::onGrowRequested);
-    connect(m_hotkeyManager, &GlobalInputManager::shrinkRequested,            this, &AppController::onShrinkRequested);
-    connect(m_hotkeyManager, &GlobalInputManager::followMouseToggleRequested, this, &AppController::onFollowMouseToggleRequested);
-    connect(m_hotkeyManager, &GlobalInputManager::recordToggleRequested,      this, &AppController::onRecordToggleRequested);
+    m_hotkeyManager = new GlobakHotkeys(this);
+    connect(m_hotkeyManager, &GlobakHotkeys::growRequested,              this, &AppController::onGrowRequested);
+    connect(m_hotkeyManager, &GlobakHotkeys::shrinkRequested,            this, &AppController::onShrinkRequested);
+    connect(m_hotkeyManager, &GlobakHotkeys::followMouseToggleRequested, this, &AppController::onFollowMouseToggleRequested);
+    connect(m_hotkeyManager, &GlobakHotkeys::recordToggleRequested,      this, &AppController::onRecordToggleRequested);
 #endif
 
     // Follow-mouse pan timer — runs at 60 Hz during recording when enabled.

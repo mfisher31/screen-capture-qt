@@ -16,13 +16,16 @@ namespace sc {
 // The two zones meet at the edge and their speeds add if both fire simultaneously
 // (which only happens at distance 0, i.e. exactly on the border).
 //
+// When outerThreshold < 0 the outer zone is unlimited: panning fires at maxSpeed
+// whenever the cursor is anywhere outside the rect (screen-wide follow mode).
+//
 // Returns `current` unchanged when the cursor is far from all edges or the rect
 // is already against the screen bounds in the direction of pan.
 //
 // All coordinates are in logical screen pixels (same space as QCursor::pos()).
 struct MousePanner {
-    int innerThreshold = 80;   // px inside  the rect where panning begins
-    int outerThreshold = 40;   // px outside the rect where panning begins
+    int innerThreshold = 150;   // px inside  the rect where panning begins
+    int outerThreshold = -1;   // px outside the rect where panning begins
     int maxSpeed       = 10;   // px/tick at maximum proximity (at the edge itself)
 
     [[nodiscard]] QRect pan(const QPoint& cursor,
@@ -42,20 +45,20 @@ struct MousePanner {
         //   outer zone: cursor is outside (dist <  0) and within outerThreshold
 
         // Left edge.
-        if (distLeft >= 0 && distLeft < innerThreshold)   dx -= innerSpeed(distLeft);
-        if (distLeft <  0 && -distLeft < outerThreshold)  dx -= outerSpeed(-distLeft);
+        if (distLeft >= 0 && distLeft < innerThreshold)                        dx -= innerSpeed(distLeft);
+        if (distLeft <  0 && (outerThreshold < 0 || -distLeft < outerThreshold)) dx -= outerSpeed(-distLeft);
 
         // Right edge.
-        if (distRight >= 0 && distRight < innerThreshold)  dx += innerSpeed(distRight);
-        if (distRight <  0 && -distRight < outerThreshold) dx += outerSpeed(-distRight);
+        if (distRight >= 0 && distRight < innerThreshold)                         dx += innerSpeed(distRight);
+        if (distRight <  0 && (outerThreshold < 0 || -distRight < outerThreshold)) dx += outerSpeed(-distRight);
 
         // Top edge.
-        if (distTop >= 0 && distTop < innerThreshold)   dy -= innerSpeed(distTop);
-        if (distTop <  0 && -distTop < outerThreshold)  dy -= outerSpeed(-distTop);
+        if (distTop >= 0 && distTop < innerThreshold)                        dy -= innerSpeed(distTop);
+        if (distTop <  0 && (outerThreshold < 0 || -distTop < outerThreshold)) dy -= outerSpeed(-distTop);
 
         // Bottom edge.
-        if (distBottom >= 0 && distBottom < innerThreshold)  dy += innerSpeed(distBottom);
-        if (distBottom <  0 && -distBottom < outerThreshold) dy += outerSpeed(-distBottom);
+        if (distBottom >= 0 && distBottom < innerThreshold)                         dy += innerSpeed(distBottom);
+        if (distBottom <  0 && (outerThreshold < 0 || -distBottom < outerThreshold)) dy += outerSpeed(-distBottom);
 
         if (dx == 0 && dy == 0)
             return current;
@@ -81,8 +84,10 @@ private:
     }
 
     // Speed when cursor is outside, `dist` px past the edge (0 = at the edge).
+    // When outerThreshold < 0 the zone is unlimited and speed is always maxSpeed.
     int outerSpeed(int dist) const
     {
+        if (outerThreshold < 0)      return maxSpeed;
         if (dist <= 0)               return maxSpeed;
         if (dist >= outerThreshold)  return 0;
         return qRound((1.0 - (qreal)dist / outerThreshold) * maxSpeed);

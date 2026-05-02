@@ -158,6 +158,13 @@ endif()
 
 # macOS bundle settings
 if(APPLE)
+    option(FRAMELIT_RUN_MACDEPLOYQT "Run macdeployqt after build" ON)
+    set(FRAMELIT_CODESIGN_IDENTITY "ED7BA643A218B65A4A1068D40A77E73EFA30ED56" CACHE STRING "Developer ID signing identity for Framelit.app")
+
+    get_target_property(_qt_qmake_location Qt6::qmake IMPORTED_LOCATION)
+    get_filename_component(_qt_bin_dir "${_qt_qmake_location}" DIRECTORY)
+    find_program(MACDEPLOYQT_EXECUTABLE macdeployqt HINTS "${_qt_bin_dir}")
+
     set_target_properties(framelit PROPERTIES
         MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_GUI_IDENTIFIER "com.sc.framelit"
@@ -165,14 +172,47 @@ if(APPLE)
         MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION}
         MACOSX_BUNDLE_INFO_PLIST "${CMAKE_SOURCE_DIR}/Info.plist.in"
     )
-    # Ad-hoc sign with screen recording entitlement so TCC grants work.
+
+    # Step 1: deploy Qt frameworks — signing done separately so we control the flags.
+    if(FRAMELIT_RUN_MACDEPLOYQT)
+        if(MACDEPLOYQT_EXECUTABLE)
+            add_custom_command(TARGET framelit POST_BUILD
+                COMMAND "${MACDEPLOYQT_EXECUTABLE}"
+                        "$<TARGET_BUNDLE_DIR:framelit>"
+                        -always-overwrite
+                        -no-codesign
+                COMMENT "Deploying Qt frameworks with macdeployqt"
+            )
+        else()
+            message(WARNING "FRAMELIT_RUN_MACDEPLOYQT is ON but macdeployqt was not found. Skipping.")
+        endif()
+    endif()
+
+    # Step 2: sign the bundle with hardened runtime + secure timestamp so the
+    # bundle is accepted by Apple's notarization service without modification.
+    # To notarize: xcrun notarytool submit Framelit.app --wait ...
+    # To staple:   xcrun stapler staple Framelit.app
     add_custom_command(TARGET framelit POST_BUILD
         COMMAND codesign --force --deep
-                --sign "ED7BA643A218B65A4A1068D40A77E73EFA30ED56"
+                --sign "${FRAMELIT_CODESIGN_IDENTITY}"
                 --entitlements "${CMAKE_SOURCE_DIR}/entitlements.plist"
+                --options runtime
+                --timestamp
                 "$<TARGET_BUNDLE_DIR:framelit>"
-        COMMENT "Signing with Developer ID"
+        COMMENT "Signing Framelit.app (hardened runtime + timestamp)"
     )
+
+    # Notarize Example
+    # echo "Notarizing"
+    # xcrun notarytool submit \
+    #     "deploy/${PKG_FILENAME}" \
+    #     --keychain-profile "notarytool-profile" \
+    #     --wait
+
+    # echo "Stapling notarization ticket..."
+    # xcrun stapler staple "deploy/${PKG_FILENAME}"
+    # xcrun stapler validate "deploy/${PKG_FILENAME}"
+
 endif()
 
 # ---------------------------------------------------------------------------

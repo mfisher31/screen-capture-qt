@@ -18,6 +18,8 @@
     <string>6.0</string>
     <key>NSMicrophoneUsageDescription</key>
     <string>Framelit records microphone audio into screen recordings.</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
     <key>NSHighResolutionCapable</key>
     <true/>
 </dict>

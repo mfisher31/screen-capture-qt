@@ -175,11 +175,30 @@ if(APPLE)
     get_filename_component(_qt_bin_dir "${_qt_qmake_location}" DIRECTORY)
     find_program(MACDEPLOYQT_EXECUTABLE macdeployqt HINTS "${_qt_bin_dir}")
 
+    # Generate AppIcon.icns from icon.png at configure time using sips + iconutil.
+    set(_icon_src "${CMAKE_SOURCE_DIR}/icon.png")
+    set(_iconset  "${CMAKE_BINARY_DIR}/AppIcon.iconset")
+    set(_icns     "${CMAKE_BINARY_DIR}/AppIcon.icns")
+    file(MAKE_DIRECTORY "${_iconset}")
+    foreach(_sz 16 32 128 256 512)
+        math(EXPR _sz2x "${_sz} * 2")
+        execute_process(
+            COMMAND sips -z ${_sz} ${_sz} "${_icon_src}" --out "${_iconset}/icon_${_sz}x${_sz}.png"
+            OUTPUT_QUIET ERROR_QUIET)
+        execute_process(
+            COMMAND sips -z ${_sz2x} ${_sz2x} "${_icon_src}" --out "${_iconset}/icon_${_sz}x${_sz}@2x.png"
+            OUTPUT_QUIET ERROR_QUIET)
+    endforeach()
+    execute_process(COMMAND iconutil -c icns "${_iconset}" -o "${_icns}")
+    target_sources(framelit PRIVATE "${_icns}")
+    set_source_files_properties("${_icns}" PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
+
     set_target_properties(framelit PROPERTIES
         MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_GUI_IDENTIFIER "com.sc.framelit"
         MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
         MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION}
+        MACOSX_BUNDLE_ICON_FILE AppIcon
         MACOSX_BUNDLE_INFO_PLIST "${CMAKE_SOURCE_DIR}/Info.plist.in"
     )
 

@@ -24,14 +24,6 @@ SystemTray::SystemTray(Actions* actions, QObject* parent)
 
     buildMenu(actions);
     m_icon->setContextMenu(m_menu);
-
-    // Single-click / double-click on the tray icon triggers the shared showHide action.
-    connect(m_icon, &QSystemTrayIcon::activated, actions,
-            [actions](QSystemTrayIcon::ActivationReason reason) {
-                if (reason == QSystemTrayIcon::Trigger ||
-                    reason == QSystemTrayIcon::DoubleClick)
-                    actions->showHide->trigger();
-            });
 }
 
 SystemTray::~SystemTray()

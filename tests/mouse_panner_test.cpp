@@ -110,8 +110,9 @@ private slots:
 
     void outsideBeyondThreshold_noPan()
     {
-        // 210px outside left edge (100) — beyond default outerThreshold (200)
+        // 210px outside left edge (100) — beyond outerThreshold of 200
         MousePanner p;
+        p.outerThreshold = 200;
         QPoint cursor { 100 - p.outerThreshold - 10, 300 };
         QCOMPARE(p.pan(cursor, kRect, kScreen), kRect);
     }
@@ -123,10 +124,11 @@ private slots:
 
     void innerZoneDoesNotFireWhenOutside()
     {
-        // 210px outside right edge (899) — beyond outerThreshold (200) but within innerThreshold (80)
+        // 210px outside right edge (899) — beyond outerThreshold (200) but within innerThreshold
         // (distRight < 0 and abs > outerThreshold, so neither zone fires)
         // Expect: no pan at all
         MousePanner p;
+        p.outerThreshold = 200;
         QPoint cursor { kRect.right() + p.outerThreshold + 10, 300 };
         QCOMPARE(p.pan(cursor, kRect, kScreen), kRect);
     }
@@ -178,25 +180,25 @@ private slots:
 
     // -----------------------------------------------------------------------
     // outerThreshold < 0 — unlimited outer zone (screen-wide follow mode)
+    // Default is -1, so these tests use the panner as-is.
     // -----------------------------------------------------------------------
 
-    void negativeOuterThreshold_firesAnywhereFarOutside()
+    void negativeOuterThreshold_default_firesAnywhereFarOutside()
     {
-        // Cursor far outside left edge — well beyond any normal outerThreshold
+        // Default outerThreshold is -1 (unlimited).
+        // Cursor 600px outside left edge — still pans.
         QPoint cursor { -500, 300 };
         MousePanner p;
-        p.outerThreshold = -1;  // unlimited
         QRect result = p.pan(cursor, kRect, kScreen);
-        QVERIFY(result.left() < kRect.left());   // still pans left
+        QVERIFY(result.left() < kRect.left());
         QCOMPARE(result.size(), kRect.size());
     }
 
-    void negativeOuterThreshold_speedIsMaxSpeed()
+    void negativeOuterThreshold_default_speedIsMaxSpeed()
     {
-        // At any exterior distance, outerSpeed should return maxSpeed
+        // At any exterior distance with unlimited zone, speed is always maxSpeed.
         QPoint cursor { -999, 300 };
         MousePanner p;
-        p.outerThreshold = -1;
         QRect result = p.pan(cursor, kRect, kScreen);
         // Only the left outer zone fires, so dx == -maxSpeed
         QCOMPARE(kRect.left() - result.left(), p.maxSpeed);
@@ -204,10 +206,10 @@ private slots:
 
     void positiveOuterThreshold_stillIgnoresFarCursor()
     {
-        // Sanity: with a normal threshold, a very far cursor does NOT pan
-        QPoint cursor { -500, 300 };
+        // With a finite threshold, a cursor far beyond it does NOT pan.
+        QPoint cursor { -500, 300 };  // 600px outside left edge
         MousePanner p;
-        // outerThreshold defaults to 200; -500 is 600px outside left edge
+        p.outerThreshold = 200;       // only fires within 200px of edge
         QCOMPARE(p.pan(cursor, kRect, kScreen), kRect);
     }
 };

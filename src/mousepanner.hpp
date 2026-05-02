@@ -25,7 +25,7 @@ namespace sc {
 // All coordinates are in logical screen pixels (same space as QCursor::pos()).
 struct MousePanner {
     int innerThreshold = 150;   // px inside  the rect where panning begins
-    int outerThreshold = -1;   // px outside the rect where panning begins
+    int outerThreshold = -1;   // px outside the rect where panning begins (<0 = unlimited)
     int maxSpeed       = 10;   // px/tick at maximum proximity (at the edge itself)
 
     [[nodiscard]] QRect pan(const QPoint& cursor,

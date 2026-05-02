@@ -6,6 +6,7 @@
 #include "streamingstrategy.hpp"
 #include "mousepanner.hpp"
 #include "ui/capturewindow.hpp"
+#include "ui/centerhandle.hpp"
 #include "ui/controlbar.hpp"
 
 #include <QCursor>
@@ -68,6 +69,7 @@ void AppController::start()
 #endif
 
     m_captureWindow = new CaptureWindow(this);
+    m_centerHandle  = new CenterHandle();
     m_controlBar    = new ControlBar(m_captureWindow);
 
     // Wire control bar buttons → controller slots
@@ -91,8 +93,30 @@ void AppController::start()
     // Wire controller state → windows
     connect(this, &AppController::stateChanged,  m_captureWindow, &CaptureWindow::onStateChanged);
     connect(this, &AppController::stateChanged,  m_controlBar,    &ControlBar::onStateChanged);
+    connect(this, &AppController::stateChanged,  this,            [this](AppState) {
+        syncCenterHandleVisibility();
+    });
     connect(this, &AppController::regionChanged, m_captureWindow, &CaptureWindow::onRegionChanged);
+    connect(this, &AppController::regionChanged, m_centerHandle,  &CenterHandle::onRegionChanged);
     connect(this, &AppController::regionChanged, m_controlBar,    &ControlBar::onRegionChanged);
+
+    // Center handle drag moves the whole capture region while the frame is click-through.
+    connect(m_centerHandle, &CenterHandle::dragDelta, this, [this](const QPoint& delta) {
+        if (delta.isNull())
+            return;
+        QRect moved = m_region.rect.translated(delta);
+        const QRect bounds = m_region.screen
+            ? m_region.screen->geometry()
+            : QGuiApplication::primaryScreen()->geometry();
+        const CaptureRegion clamped = CaptureRegion{m_region.screen, moved}.clampedTo(bounds);
+        onRegionChanged(clamped.rect);
+    });
+    connect(m_centerHandle, &CenterHandle::wheelResizeRequested, this, [this](int direction) {
+        if (direction > 0)
+            onGrowRequested();
+        else if (direction < 0)
+            onShrinkRequested();
+    });
 
     // Wire capture window drag/resize → controller
     connect(m_captureWindow, &CaptureWindow::regionChanged, this, &AppController::onRegionChanged);
@@ -117,6 +141,7 @@ void AppController::start()
     connect(m_followTimer, &QTimer::timeout, this, &AppController::onFollowMouseTick);
 
     m_captureWindow->show();
+    m_centerHandle->show();
     m_controlBar->show();
 
     if (SystemTray::isAvailable()) {
@@ -164,26 +189,30 @@ void AppController::syncActions()
 
 void AppController::setUiVisible(bool visible)
 {
-    if (!m_captureWindow || !m_controlBar)
+    if (!m_captureWindow || !m_centerHandle || !m_controlBar)
         return;
 
     if (visible) {
         m_captureWindow->show();
+        m_centerHandle->show();
         m_controlBar->show();
         m_controlBar->snapToRegion(m_region.rect);
         m_captureWindow->raise();
+        m_centerHandle->raise();
         m_controlBar->raise();
     } else {
         m_controlBar->hide();
+        m_centerHandle->hide();
         m_captureWindow->hide();
     }
 
+    syncCenterHandleVisibility();
     syncActions();
 }
 
 void AppController::toggleUiVisible()
 {
-    if (!m_captureWindow || !m_controlBar)
+    if (!m_captureWindow || !m_centerHandle || !m_controlBar)
         return;
     const bool visible = m_captureWindow->isVisible() && m_controlBar->isVisible();
     setUiVisible(!visible);
@@ -477,6 +506,18 @@ void AppController::updateFollowTimer()
         m_followTimer->start();
     else
         m_followTimer->stop();
+}
+
+void AppController::syncCenterHandleVisibility()
+{
+    if (!m_centerHandle || !m_captureWindow || !m_controlBar)
+        return;
+
+    const bool uiVisible = m_captureWindow->isVisible() && m_controlBar->isVisible();
+    const bool showHandle = uiVisible && (m_state != AppState::Recording);
+    m_centerHandle->setVisible(showHandle);
+    if (showHandle)
+        m_centerHandle->raise();
 }
 
 void AppController::onFollowMouseChangeRequested(bool enabled)

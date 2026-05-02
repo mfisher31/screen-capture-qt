@@ -1,12 +1,10 @@
 #include "capturewindow.hpp"
 
 #include <QColor>
-#include <QCursor>
 #include <QFont>
 #include <QGraphicsRectItem>
 #include <QGraphicsScene>
 #include <QGraphicsSimpleTextItem>
-#include <QMouseEvent>
 #include <QPen>
 #include <QTimer>
 
@@ -70,12 +68,6 @@ CaptureWindow::CaptureWindow(QObject* /*controller*/, QWidget* parent)
     // hide the dimensions label. redundant saving for later.
     m_labelItem->setVisible(false);
 
-    // 8 resize handles: corners (0-3) then edge midpoints (4-7)
-    for (int i = 0; i < 8; ++i) {
-        m_handles[i] = m_scene->addRect(QRectF(), Qt::NoPen, QBrush(borderColor()));
-        m_handles[i]->setZValue(2);
-    }
-
     setGeometry(0, 0, 800, 450);  // placeholder; AppController sets real position
     updateSceneGeometry();
 }
@@ -95,13 +87,13 @@ void CaptureWindow::onStateChanged(sc::AppState state)
     else
         m_lockedAspect = 0.0;
 
-    // Enable click-through while recording so the user can interact with
-    // whatever is underneath the capture region.
+    // Keep the frame click-through in every state so underlying apps remain
+    // interactive. Movement is handled by CenterHandle.
     // WA_TransparentForMouseEvents alone is insufficient — it only affects
     // Qt's internal dispatch. Real click-through requires a platform call:
     //   macOS: NSWindow.ignoresMouseEvents
     //   Linux/X11: XShape input region set to empty
-    const bool passthrough = (state == AppState::Recording);
+    const bool passthrough = true;
     setAttribute(Qt::WA_TransparentForMouseEvents, passthrough);
 #ifdef Q_OS_MACOS
     setWindowClickThrough(reinterpret_cast<void*>(winId()), passthrough);
@@ -141,7 +133,6 @@ void CaptureWindow::updateSceneGeometry()
 {
     const qreal w  = width();
     const qreal ht = height();
-    const qreal h  = kHandleSize;
     const qreal bw = kBorderWidth;
 
     setSceneRect(0, 0, w, ht);
@@ -156,190 +147,10 @@ void CaptureWindow::updateSceneGeometry()
     m_labelItem->setText(QString("%1\xc3\x97%2").arg(int(w)).arg(int(ht)));
     m_labelItem->setPos(bw + 4, bw + 4);
 
-    // Resize handles: visible only when the user can interact with the window
-    const bool showHandles = (m_state == AppState::Idle ||
-                              m_state == AppState::Positioning);
-    const QBrush handleBrush(bc);
-
-    // Index order: TL, TR, BL, BR, EdgeTop, EdgeBottom, EdgeLeft, EdgeRight
-    const QPointF positions[8] = {
-        {0,             0            },  // 0: CornerTL
-        {w - h,         0            },  // 1: CornerTR
-        {0,             ht - h       },  // 2: CornerBL
-        {w - h,         ht - h       },  // 3: CornerBR
-        {w / 2 - h / 2, 0            },  // 4: EdgeTop
-        {w / 2 - h / 2, ht - h       },  // 5: EdgeBottom
-        {0,             ht / 2 - h / 2}, // 6: EdgeLeft
-        {w - h,         ht / 2 - h / 2}, // 7: EdgeRight
-    };
-
-    for (int i = 0; i < 8; ++i) {
-        m_handles[i]->setRect(QRectF(positions[i].x(), positions[i].y(), h, h));
-        m_handles[i]->setBrush(handleBrush);
-        m_handles[i]->setVisible(showHandles);
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Mouse interaction
-// ---------------------------------------------------------------------------
-
-CaptureWindow::HitZone CaptureWindow::hitTest(const QPoint& pos) const
-{
-    const int h = kHandleSize;
-    const int w = width(), ht = height();
-
-    bool onLeft   = pos.x() < h;
-    bool onRight  = pos.x() > w - h;
-    bool onTop    = pos.y() < h;
-    bool onBottom = pos.y() > ht - h;
-
-    if (onTop    && onLeft)  return HitZone::CornerTL;
-    if (onTop    && onRight) return HitZone::CornerTR;
-    if (onBottom && onLeft)  return HitZone::CornerBL;
-    if (onBottom && onRight) return HitZone::CornerBR;
-    if (onTop)               return HitZone::EdgeTop;
-    if (onBottom)            return HitZone::EdgeBottom;
-    if (onLeft)              return HitZone::EdgeLeft;
-    if (onRight)             return HitZone::EdgeRight;
-    return HitZone::Body;
-}
-
-void CaptureWindow::mousePressEvent(QMouseEvent* event)
-{
-    if (event->button() != Qt::LeftButton)
-        return;
-
-    m_dragZone    = hitTest(event->pos());
-    m_dragging    = (m_dragZone != HitZone::None);
-    m_dragStart   = event->globalPosition().toPoint();
-    m_rectAtPress = geometry();
-    m_pressAspect = (m_rectAtPress.height() > 0)
-        ? double(m_rectAtPress.width()) / double(m_rectAtPress.height())
-        : 1.0;
-}
-
-void CaptureWindow::mouseMoveEvent(QMouseEvent* event)
-{
-    if (!m_dragging) {
-        // Update cursor shape based on hover zone
-        switch (hitTest(event->pos())) {
-        case HitZone::CornerTL: case HitZone::CornerBR: setCursor(Qt::SizeFDiagCursor); break;
-        case HitZone::CornerTR: case HitZone::CornerBL: setCursor(Qt::SizeBDiagCursor); break;
-        case HitZone::EdgeTop:  case HitZone::EdgeBottom: setCursor(Qt::SizeVerCursor);  break;
-        case HitZone::EdgeLeft: case HitZone::EdgeRight:  setCursor(Qt::SizeHorCursor);  break;
-        case HitZone::Body: setCursor(Qt::SizeAllCursor); break;
-        default: setCursor(Qt::ArrowCursor); break;
-        }
-        return;
-    }
-
-    QPoint delta = event->globalPosition().toPoint() - m_dragStart;
-    QRect r = m_rectAtPress;
-
-    switch (m_dragZone) {
-    case HitZone::Body:
-        r.translate(delta);
-        break;
-    case HitZone::EdgeTop:
-        r.setTop(qMin(r.top() + delta.y(), r.bottom() - kMinDimension));
-        break;
-    case HitZone::EdgeBottom:
-        r.setBottom(qMax(r.bottom() + delta.y(), r.top() + kMinDimension));
-        break;
-    case HitZone::EdgeLeft:
-        r.setLeft(qMin(r.left() + delta.x(), r.right() - kMinDimension));
-        break;
-    case HitZone::EdgeRight:
-        r.setRight(qMax(r.right() + delta.x(), r.left() + kMinDimension));
-        break;
-    case HitZone::CornerTL:
-        r.setTopLeft(r.topLeft() + delta);
-        if (r.width()  < kMinDimension) r.setLeft(r.right()  - kMinDimension);
-        if (r.height() < kMinDimension) r.setTop(r.bottom()  - kMinDimension);
-        break;
-    case HitZone::CornerTR:
-        r.setTopRight(r.topRight() + delta);
-        if (r.width()  < kMinDimension) r.setRight(r.left()  + kMinDimension);
-        if (r.height() < kMinDimension) r.setTop(r.bottom()  - kMinDimension);
-        break;
-    case HitZone::CornerBL:
-        r.setBottomLeft(r.bottomLeft() + delta);
-        if (r.width()  < kMinDimension) r.setLeft(r.right()  - kMinDimension);
-        if (r.height() < kMinDimension) r.setBottom(r.top()  + kMinDimension);
-        break;
-    case HitZone::CornerBR:
-        r.setBottomRight(r.bottomRight() + delta);
-        if (r.width()  < kMinDimension) r.setRight(r.left()  + kMinDimension);
-        if (r.height() < kMinDimension) r.setBottom(r.top()  + kMinDimension);
-        break;
-    default: break;
-    }
-
-    // Determine the effective aspect ratio to enforce:
-    // - Recording: use the ratio locked at record-start (zoom effect).
-    // - Idle/Positioning: lock by default; Shift overrides to free-form.
-    double effectiveAspect = m_lockedAspect;
-    if (effectiveAspect == 0.0 && m_dragZone != HitZone::Body) {
-        const bool shiftHeld = (event->modifiers() & Qt::ShiftModifier);
-        if (!shiftHeld)
-            effectiveAspect = m_pressAspect;
-    }
-
-    // Constrain to locked aspect ratio while recording (zoom effect).
-    // Body drags (move) are exempt — only resize operations are constrained.
-    if (effectiveAspect > 0.0 && m_dragZone != HitZone::Body) {
-        // Anchor point depends on which edge/corner is being dragged.
-        // We keep the opposite corner fixed and adjust whichever free
-        // dimension is smaller relative to the aspect ratio.
-        const bool anchorRight  = (m_dragZone == HitZone::CornerTL ||
-                                   m_dragZone == HitZone::CornerBL ||
-                                   m_dragZone == HitZone::EdgeLeft);
-        const bool anchorBottom = (m_dragZone == HitZone::CornerTL ||
-                                   m_dragZone == HitZone::CornerTR ||
-                                   m_dragZone == HitZone::EdgeTop);
-
-        // Derive constrained dimensions. For top/bottom edge drags the user
-        // is moving in Y so drive from the new height; for left/right and
-        // corners drive from the new width.
-        int newW, newH;
-        if (m_dragZone == HitZone::EdgeTop || m_dragZone == HitZone::EdgeBottom) {
-            newH = qMax(kMinDimension, r.height());
-            newW = qMax(kMinDimension, int(newH * effectiveAspect));
-        } else {
-            newW = qMax(kMinDimension, r.width());
-            newH = qMax(kMinDimension, int(newW / effectiveAspect));
-            newW = qMax(kMinDimension, int(newH * effectiveAspect));
-        }
-
-        if (anchorRight)
-            r.setLeft(r.right() - newW);
-        else
-            r.setRight(r.left() + newW);
-
-        if (anchorBottom)
-            r.setTop(r.bottom() - newH);
-        else
-            r.setBottom(r.top() + newH);
-    }
-
-    setGeometry(r);
-    // Do NOT emit regionChanged here — resizeEvent/moveEvent will emit
-    // after macOS has committed the geometry, which is what the control
-    // bar needs to reposition reliably.
-}
-
-void CaptureWindow::mouseReleaseEvent(QMouseEvent* event)
-{
-    if (event->button() != Qt::LeftButton)
-        return;
-    m_dragging = false;
-    m_dragZone = HitZone::None;
 }
 
 // resizeEvent and moveEvent fire after macOS has committed the window
-// geometry change to the compositor — unlike our synchronous emit inside
-// mouseMoveEvent, these are guaranteed to carry the actual new geometry.
+// geometry change to the compositor.
 void CaptureWindow::showEvent(QShowEvent* event)
 {
     QGraphicsView::showEvent(event);

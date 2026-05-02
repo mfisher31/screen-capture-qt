@@ -36,6 +36,7 @@ set(SOURCES
     src/encoding/gifencoder.cpp
     src/encoding/videoencoder.cpp
     src/ui/capturewindow.cpp
+    src/ui/centerhandle.cpp
     src/ui/controlbar.cpp
     src/ui/systemtray.cpp
     src/ui/actions.cpp
@@ -67,6 +68,7 @@ set(HEADERS
     src/encoding/gifencoder.hpp
     src/platform/screencapturebackend.hpp
     src/ui/capturewindow.hpp
+    src/ui/centerhandle.hpp
     src/ui/controlbar.hpp
 )
 

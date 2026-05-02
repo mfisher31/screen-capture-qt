@@ -124,6 +124,7 @@ struct RecordingSettings {
 // ---------------------------------------------------------------------------
 
 class CaptureWindow;
+class CenterHandle;
 class ControlBar;
 class RecorderWorker;
 class RecordingStrategy;
@@ -188,6 +189,7 @@ private:
     void applySettingsToUI();
     void applyResizeDelta(int delta);
     void updateFollowTimer();  // start/stop m_followTimer based on state + flag
+    void syncCenterHandleVisibility();
     void setUiVisible(bool visible);
     void toggleUiVisible();
     void syncActions();  // calls m_actions->sync() with current state
@@ -201,6 +203,7 @@ private:
     bool   m_followMouse    = false; // follow-mouse pan mode
 
     CaptureWindow*     m_captureWindow  = nullptr;
+    CenterHandle*      m_centerHandle   = nullptr;
     ControlBar*        m_controlBar     = nullptr;
     RecorderWorker*    m_worker         = nullptr;
     QThread*           m_workerThread   = nullptr;

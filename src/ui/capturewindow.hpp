@@ -4,7 +4,6 @@
 
 #include <QGraphicsView>
 #include <QRect>
-#include <QPoint>
 
 class QGraphicsScene;
 class QGraphicsRectItem;
@@ -16,16 +15,13 @@ namespace sc {
 // Built on QGraphicsView so state changes are zero-repaint setPen() calls
 // on QGraphicsRectItem rather than manual paintEvent redraws.
 //
-// While recording it becomes click-through (WA_TransparentForMouseEvents);
-// in Idle/Positioning it accepts mouse events for drag-to-move and
-// edge/corner resize. All mouse handling is at the view level — scene items
-// are display-only (setInteractive(false)).
+// It stays click-through in all states so underlying apps remain interactive;
+// movement is handled by CenterHandle.
 class CaptureWindow : public QGraphicsView {
     Q_OBJECT
 
 public:
     static constexpr int kBorderWidth  = 2;
-    static constexpr int kHandleSize   = 8;
     static constexpr int kMinDimension = 80;
 
     explicit CaptureWindow(QObject* controller, QWidget* parent = nullptr);
@@ -42,9 +38,6 @@ public slots:
     void onRegionChanged(const sc::CaptureRegion& region);
 
 protected:
-    void mousePressEvent(QMouseEvent* event) override;
-    void mouseMoveEvent(QMouseEvent* event) override;
-    void mouseReleaseEvent(QMouseEvent* event) override;
     void showEvent(QShowEvent* event) override;
     // These fire AFTER macOS has committed the geometry change, making
     // them reliable for notifying the control bar to reposition.
@@ -52,14 +45,6 @@ protected:
     void moveEvent(QMoveEvent* event) override;
 
 private:
-    enum class HitZone {
-        None,
-        Body,
-        EdgeTop, EdgeBottom, EdgeLeft, EdgeRight,
-        CornerTL, CornerTR, CornerBL, CornerBR
-    };
-
-    HitZone hitTest(const QPoint& localPos) const;
     QColor  borderColor() const;
 
     // Repositions and recolors all scene items to match the current
@@ -69,7 +54,6 @@ private:
     QGraphicsScene*          m_scene      = nullptr;
     QGraphicsRectItem*       m_borderItem = nullptr;
     QGraphicsSimpleTextItem* m_labelItem  = nullptr;
-    QGraphicsRectItem*       m_handles[8] = {};   // corners + edge midpoints
 
     AppState m_state          = AppState::Idle;
 
@@ -78,17 +62,9 @@ private:
     // to avoid a signal feedback loop.
     bool m_suppressSignal = false;
 
-    // Drag state
-    bool    m_dragging   = false;
-    HitZone m_dragZone   = HitZone::None;
-    QPoint  m_dragStart;      // global position at press
-    QRect   m_rectAtPress;    // window geometry at press
-
     // When recording, resize is constrained to the aspect ratio captured at
     // record-start, creating a zoom effect. 0.0 = unlocked (not recording).
     double  m_lockedAspect = 0.0;
-    // Aspect ratio (width/height) captured at mouse-press for idle constraint.
-    double  m_pressAspect  = 0.0;
 };
 
 } // namespace sc

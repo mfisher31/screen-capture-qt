@@ -10,6 +10,14 @@ set(CMAKE_AUTOUIC ON)
 # Find Qt6 — prefer the standard ~/Qt install location on macOS
 set(QT_DEFAULT_MAJOR_VERSION 6)
 
+# CI-friendly Qt discovery: prefer paths exported by install-qt-action.
+if(DEFINED ENV{Qt6_DIR} AND NOT DEFINED Qt6_DIR)
+    set(Qt6_DIR "$ENV{Qt6_DIR}")
+endif()
+if(DEFINED ENV{Qt_ROOT_DIR})
+    list(PREPEND CMAKE_PREFIX_PATH "$ENV{Qt_ROOT_DIR}")
+endif()
+
 if(APPLE)
     list(PREPEND CMAKE_PREFIX_PATH "$ENV{HOME}/Qt/6.11.0/macos")
 elseif(LINUX)

@@ -197,8 +197,9 @@ void CenterHandle::flushWheelResize()
     if (qAbs(m_wheelAccumulator) < kWheelStepDelta)
         return;
 
-    const int direction = m_wheelAccumulator > 0 ? +1 : -1;
-    m_wheelAccumulator -= direction * kWheelStepDelta;
+    const int accumulatorSign = m_wheelAccumulator > 0 ? +1 : -1;
+    const int direction = -accumulatorSign;
+    m_wheelAccumulator -= accumulatorSign * kWheelStepDelta;
     emit wheelResizeRequested(direction);
     m_wheelTimer.start(kWheelThrottleMs);
 }

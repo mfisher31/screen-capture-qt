@@ -242,6 +242,7 @@ void AppController::onStartRequested()
     const bool demo = m_controlBar && m_controlBar->demoMode();
     auto* worker = new ScreenCaptureWorker(m_region, m_settings, demo ? QList<WId>{} : QList<WId>{
         m_captureWindow ? m_captureWindow->winId() : WId{0},
+        m_centerHandle  ? m_centerHandle->winId()  : WId{0},
         m_controlBar    ? m_controlBar->winId()    : WId{0},
     });
     attachWorker(worker);
@@ -514,7 +515,7 @@ void AppController::syncCenterHandleVisibility()
         return;
 
     const bool uiVisible = m_captureWindow->isVisible() && m_controlBar->isVisible();
-    const bool showHandle = uiVisible && (m_state != AppState::Recording);
+    const bool showHandle = uiVisible;
     m_centerHandle->setVisible(showHandle);
     if (showHandle)
         m_centerHandle->raise();

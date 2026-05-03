@@ -171,6 +171,7 @@ public slots:
     void onSnapAspectRequested();
     void onGrowRequested();
     void onShrinkRequested();
+    void onScreenshotRequested();
 
 signals:
     void stateChanged(sc::AppState newState);

@@ -189,11 +189,22 @@ void CaptureWindow::moveEvent(QMoveEvent* event)
 
 QColor CaptureWindow::borderColor() const
 {
+    if (m_flashActive)             return QColor(0x22, 0xC5, 0x5E); // green flash
     switch (m_state) {
-    case AppState::Recording:  return QColor(0xEF, 0x44, 0x44); // red
-    case AppState::Paused:     return QColor(0xFA, 0xCC, 0x15); // yellow
-    default:                   return QColor(0x94, 0xA3, 0xB8); // slate
+    case AppState::Recording:      return QColor(0xEF, 0x44, 0x44); // red
+    case AppState::Paused:         return QColor(0xFA, 0xCC, 0x15); // yellow
+    default:                       return QColor(0x94, 0xA3, 0xB8); // slate
     }
+}
+
+void CaptureWindow::flashGreen()
+{
+    m_flashActive = true;
+    updateSceneGeometry();
+    QTimer::singleShot(300, this, [this]() {
+        m_flashActive = false;
+        updateSceneGeometry();
+    });
 }
 
 } // namespace sc

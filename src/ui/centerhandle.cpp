@@ -44,6 +44,7 @@ void CenterHandle::showEvent(QShowEvent* event)
     QTimer::singleShot(0, this, [wid]() {
         setWindowHidesOnDeactivate(reinterpret_cast<void*>(wid), false);
         setNSWindowLevel(reinterpret_cast<void*>(wid), kStatusWindowLevel);
+        excludeWindowFromScreenCapture(reinterpret_cast<void*>(wid));
     });
 #endif
 }
@@ -175,6 +176,14 @@ void CenterHandle::mouseReleaseEvent(QMouseEvent* event)
         m_hovered = false;
         update();
     }
+    event->accept();
+}
+
+void CenterHandle::mouseDoubleClickEvent(QMouseEvent* event)
+{
+    if (event->button() != Qt::LeftButton)
+        return;
+    emit screenshotRequested();
     event->accept();
 }
 

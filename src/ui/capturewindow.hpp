@@ -36,6 +36,7 @@ signals:
 public slots:
     void onStateChanged(sc::AppState state);
     void onRegionChanged(const sc::CaptureRegion& region);
+    void flashGreen();
 
 protected:
     void showEvent(QShowEvent* event) override;
@@ -56,6 +57,7 @@ private:
     QGraphicsSimpleTextItem* m_labelItem  = nullptr;
 
     AppState m_state          = AppState::Idle;
+    bool     m_flashActive    = false;
 
     // When true, resizeEvent/moveEvent will not re-emit regionChanged.
     // Set while applying a programmatic geometry change from AppController

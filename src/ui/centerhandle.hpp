@@ -20,6 +20,7 @@ public:
 signals:
     void dragDelta(const QPoint& delta);
     void wheelResizeRequested(int direction);
+    void screenshotRequested();
 
 public slots:
     void onRegionChanged(const sc::CaptureRegion& region);
@@ -32,6 +33,7 @@ protected:
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
+    void mouseDoubleClickEvent(QMouseEvent* event) override;
     void wheelEvent(QWheelEvent* event) override;
 
 private:

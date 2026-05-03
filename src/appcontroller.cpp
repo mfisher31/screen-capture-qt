@@ -20,7 +20,9 @@
 #include "ui/systemtray.hpp"
 #include "ui/actions.hpp"
 #include <QApplication>
+#include <QDateTime>
 #include <QDesktopServices>
+#include <QDir>
 #include <QMessageBox>
 #include <QScreen>
 #include <QThread>
@@ -117,6 +119,8 @@ void AppController::start()
         else if (direction < 0)
             onShrinkRequested();
     });
+    connect(m_centerHandle, &CenterHandle::screenshotRequested, this, &AppController::onScreenshotRequested);
+    connect(m_centerHandle, &CenterHandle::screenshotRequested, m_captureWindow, &CaptureWindow::flashGreen);
 
     // Wire capture window drag/resize → controller
     connect(m_captureWindow, &CaptureWindow::regionChanged, this, &AppController::onRegionChanged);
@@ -469,6 +473,39 @@ void AppController::onSnapAspectRequested()
 
 void AppController::onGrowRequested()   { applyResizeDelta(+m_settings.growStep); }
 void AppController::onShrinkRequested() { applyResizeDelta(-m_settings.growStep); }
+
+void AppController::onScreenshotRequested()
+{
+    if (!m_region.screen || m_region.rect.isEmpty())
+        return;
+
+    // Hide the center handle so it doesn't appear in the grab, then restore.
+    m_centerHandle->hide();
+
+    const CaptureRegion region = m_region;
+    QTimer::singleShot(50, this, [this, region]() {
+        const QPixmap px = region.screen->grabWindow(
+            0,
+            region.rect.x(),
+            region.rect.y(),
+            region.rect.width(),
+            region.rect.height());
+
+        m_centerHandle->show();
+
+        if (px.isNull())
+            return;
+
+        QString dir = m_settings.outputDir;
+        if (dir.isEmpty())
+            dir = QStandardPaths::writableLocation(QStandardPaths::MoviesLocation);
+        QDir().mkpath(dir);
+
+        const QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss");
+        const QString path = dir + "/framelit_" + timestamp + ".png";
+        px.save(path, "PNG");
+    });
+}
 
 void AppController::applyResizeDelta(int delta)
 {

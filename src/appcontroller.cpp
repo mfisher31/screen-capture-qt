@@ -594,8 +594,10 @@ void AppController::onRecordToggleRequested()
 {
     if (m_state == AppState::Recording || m_state == AppState::Paused)
         onStopRequested();
-    else if (m_state == AppState::Idle || m_state == AppState::Positioning)
+    else if (m_state == AppState::Idle || m_state == AppState::Positioning) {
+        setUiVisible(true);
         onStartRequested();
+    }
 }
 
 void AppController::onFollowMouseTick()

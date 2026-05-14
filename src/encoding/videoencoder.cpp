@@ -66,6 +66,13 @@ bool VideoEncoder::start(const QString& outputPath, QSize frameSize)
         format.setVideoCodec(QMediaFormat::VideoCodec::H264);
     }
 
+    // If the preferred codec isn't available on this platform (e.g. Linux
+    // without libx264), let Qt pick the best supported alternative.
+    format.resolveForEncoding(QMediaFormat::NoFlags);
+    if (format.videoCodec() == QMediaFormat::VideoCodec::Unspecified) {
+        qWarning("[VideoEncoder] preferred codec unavailable; falling back to platform default");
+    }
+
     m_recorder.setMediaFormat(format);
     m_recorder.setOutputLocation(QUrl::fromLocalFile(outputPath));
     m_recorder.setVideoResolution(frameSize);

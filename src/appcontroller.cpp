@@ -392,6 +392,9 @@ void AppController::onEncodingFailed(const QString& reason)
         m_strategy->deleteLater();
         m_strategy = nullptr;
     }
+    // Stop the capture worker — it keeps running until explicitly told to stop.
+    if (m_worker)
+        QMetaObject::invokeMethod(m_worker, "stop", Qt::QueuedConnection);
     QMessageBox::critical(
         m_controlBar,
         QStringLiteral("Encoding Error"),

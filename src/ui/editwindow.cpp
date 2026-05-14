@@ -407,10 +407,10 @@ void EditWindow::loadMediaFile(const QString& path)
         connect(m_movie, &QMovie::stateChanged, this, [this](QMovie::MovieState) {
             syncTransportState();
         });
-        m_movie->start();
+        // Do not auto-start GIF playback
     } else {
         m_player->setSource(QUrl::fromLocalFile(path));
-        m_player->play();
+        // Do not auto-start video playback
     }
 
     syncTransportState();

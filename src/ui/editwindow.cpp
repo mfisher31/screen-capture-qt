@@ -8,6 +8,7 @@
 #include <QAudioOutput>
 #include <QCloseEvent>
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <QGraphicsItemGroup>
 #include <QGraphicsPixmapItem>
@@ -18,6 +19,7 @@
 #include <QLabel>
 #include <QListWidget>
 #include <QMediaPlayer>
+#include <QMessageBox>
 #include <QMovie>
 #include <QPushButton>
 #include <QResizeEvent>
@@ -443,6 +445,29 @@ void EditWindow::loadMediaFile(const QString& path)
 void EditWindow::keyPressEvent(QKeyEvent* event)
 {
     if (!event->isAutoRepeat()) {
+        if (event->key() == Qt::Key_Delete || event->key() == Qt::Key_Backspace) {
+            if (m_fileList) {
+                QListWidgetItem* item = m_fileList->currentItem();
+                if (item) {
+                    const QString path = item->data(Qt::UserRole).toString();
+                    if (!path.isEmpty()) {
+                        const QFileInfo fi(path);
+                        const auto answer = QMessageBox::question(
+                            this,
+                            QStringLiteral("Delete Media"),
+                            QStringLiteral("Delete '%1'? This cannot be undone.").arg(fi.fileName()),
+                            QMessageBox::Yes | QMessageBox::No,
+                            QMessageBox::No);
+                        if (answer == QMessageBox::Yes) {
+                            QFile::remove(path);
+                            refreshFileList();
+                        }
+                    }
+                }
+            }
+            event->accept();
+            return;
+        }
         if (event->key() == Qt::Key_I) {
             // Set in-point to current playhead position
             if (m_player && m_timeline && !m_currentFile.isEmpty()) {

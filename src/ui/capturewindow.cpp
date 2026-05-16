@@ -20,6 +20,7 @@ namespace sc {
 CaptureWindow::CaptureWindow(QObject* /*controller*/, QWidget* parent)
     : QGraphicsView(parent)
 {
+    setObjectName("CaptureWindow");
     setWindowFlags(Qt::FramelessWindowHint
                  | Qt::WindowStaysOnTopHint
                  | Qt::Tool);

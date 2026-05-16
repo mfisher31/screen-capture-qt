@@ -6,6 +6,9 @@
 #ifdef Q_OS_WIN
 #include <windows.h>
 #endif
+#ifdef Q_OS_LINUX
+#include "x11_window.hpp"
+#endif
 
 namespace sc {
 

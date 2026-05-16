@@ -78,6 +78,9 @@ endif()
 # Common platform utilities
 list(APPEND SOURCES src/platform/windowhelpers.cpp)
 
+# Resources (stylesheets, icons, etc.)
+list(APPEND SOURCES resources/resources.qrc)
+
 set(HEADERS
     src/appcontroller.hpp
     src/audioengine.hpp
